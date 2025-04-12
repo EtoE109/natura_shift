@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>管理者画面</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body { font-family: sans-serif; padding: 20px; }
 
@@ -35,25 +34,21 @@
       background-color: #f0f0f0;
     }
 
-    /* ✔ チェック欄 */
     th:first-child,
     td:first-child {
       width: 30px;
     }
 
-    /* 名前欄 */
     th:nth-child(2),
     td:nth-child(2) {
       width: 120px;
       text-align: left;
     }
 
-    /* 回答欄（時間が入る幅） */
     td, th {
       min-width: 120px;
     }
 
-    /* 備考欄（別テーブル） */
     .note-table td:last-child,
     .note-table th:last-child {
       width: 200px;
@@ -68,15 +63,14 @@
       margin-top: 20px;
     }
 
-    /* ゼブラストライプ */
     table tbody tr:nth-child(even) {
-      background-color: #b9e5f8e0;
+      background-color: #f9f9f9;
     }
   </style>
 </head>
 <body>
   <script>
-    const password = "na4575";
+    const password = "admin1234";
     const input = prompt("管理者パスワードを入力してください：");
     if (input !== password) {
       alert("パスワードが正しくありません。");
@@ -84,33 +78,34 @@
     }
   </script>
 
-  <h1>南口シフト</h1>
+  <h1>アンケート集計（管理者画面）</h1>
 
   <h3>アンケート対象期間</h3>
-  <label>開始日: <input type="date" id="startDate"></label>
-  <label>終了日: <input type="date" id="endDate"></label>
+  <label>開始日: <input type="date" id="startDate" /></label>
+  <label>終了日: <input type="date" id="endDate" /></label>
   <button onclick="saveRange()">期間を保存</button>
   <p id="rangeSaved" style="color: green;"></p>
 
   <div class="controls">
-    <button onclick="exportCSV()">Excelダウンロード</button>
+    <button onclick="exportCSV()">CSV出力</button>
     <button onclick="deleteSelected()">選択した回答を削除</button>
     <button onclick="deleteAll()">すべての回答を削除</button>
   </div>
 
   <div id="tableContainer" class="table-wrapper"></div>
 
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js"></script>
-
+  <!-- Firebaseモジュール -->
   <script type="module">
-    // Import the functions you need from the SDKs you need
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-    // TODO: Add SDKs for Firebase products that you want to use
-    // https://firebase.google.com/docs/web/setup#available-libraries
+    import {
+      getDatabase,
+      ref,
+      onValue,
+      remove,
+      get,
+      child
+    } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
 
-    // Your web app's Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyDToeM2cPECKb22wElwSkCDsOMiEv_QU10",
       authDomain: "natura-shift.firebaseapp.com",
@@ -121,14 +116,9 @@
       appId: "1:485985022346:web:29b59ab107cee81357d873"
     };
 
-    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
-  </script>
-
-<script>
-
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+    const db = getDatabase(app);
+    const dbRef = ref(db, "responses");
 
     const weekdays = ["月", "火", "水", "木", "金", "土", "日"];
 
@@ -151,11 +141,9 @@
       while (current <= last) {
         const iso = current.toISOString().split("T")[0];
         const day = current.getDate();
-
-        let jsDow = current.getDay(); // 日曜=0
-        const dow = (jsDow === 0) ? 6 : jsDow - 1; // 月曜=0
+        let jsDow = current.getDay();
+        const dow = (jsDow === 0) ? 6 : jsDow - 1;
         const youbi = weekdays[dow];
-
         dateArray.push({ iso, day, youbi, dow });
         current.setDate(current.getDate() + 1);
       }
@@ -165,7 +153,6 @@
     function splitWeeks(dates) {
       const weeks = [];
       let week = [];
-
       dates.forEach(date => {
         if (week.length === 0 && date.dow !== 0) {
           for (let i = 0; i < date.dow; i++) week.push(null);
@@ -176,12 +163,10 @@
           week = [];
         }
       });
-
       if (week.length > 0 && week.length < 7) {
         while (week.length < 7) week.push(null);
         weeks.push(week);
       }
-
       return weeks;
     }
 
@@ -233,12 +218,12 @@
         table.appendChild(thead);
 
         const tbody = document.createElement("tbody");
-        data.forEach((entry, index) => {
+        data.forEach(entry => {
           const row = document.createElement("tr");
 
           const checkbox = document.createElement("td");
           if (weekIndex === 0) {
-            checkbox.innerHTML = `<input type="checkbox" class="deleteCheckbox" data-index="${entry._key}">`;
+            checkbox.innerHTML = `<input type="checkbox" class="deleteCheckbox" data-key="${entry._key}">`;
           }
           row.appendChild(checkbox);
 
@@ -260,7 +245,6 @@
         container.appendChild(table);
       });
 
-      // 備考
       const notes = data.filter(e => e.note && e.note.trim());
       if (notes.length > 0) {
         const table = document.createElement("table");
@@ -277,7 +261,7 @@
           const row = document.createElement("tr");
 
           const check = document.createElement("td");
-          check.innerHTML = `<input type="checkbox" class="deleteCheckbox" data-index="${e._key}">`;
+          check.innerHTML = `<input type="checkbox" class="deleteCheckbox" data-key="${e._key}">`;
           row.appendChild(check);
 
           const name = document.createElement("td");
@@ -301,16 +285,15 @@
       const checkboxes = document.querySelectorAll(".deleteCheckbox:checked");
       if (!checkboxes.length) return alert("削除対象が選択されていません。");
       if (!confirm("本当に削除しますか？")) return;
-
       checkboxes.forEach(cb => {
-        const key = cb.dataset.index;
-        db.ref("responses/" + key).remove();
+        const key = cb.dataset.key;
+        remove(ref(db, "responses/" + key));
       });
     }
 
     function deleteAll() {
       if (confirm("すべての回答を削除しますか？")) {
-        db.ref("responses").remove();
+        remove(dbRef);
       }
     }
 
@@ -322,9 +305,9 @@
       const header = ["名前", ...dates.map(d => `${d.day}(${d.youbi})`), "備考"];
       const rows = [header];
 
-      db.ref("responses").once("value").then(snapshot => {
+      get(dbRef).then(snapshot => {
         const data = snapshot.val() || {};
-        Object.values(data).forEach(entry => {
+        Object.entries(data).forEach(([key, entry]) => {
           const row = [entry.name];
           dates.forEach(d => {
             row.push(formatTime(entry.answers?.[d.iso]));
@@ -344,23 +327,14 @@
     }
 
     function fetchData() {
-      db.ref("responses").on("value", (snapshot) => {
+      onValue(dbRef, snapshot => {
         const data = snapshot.val() || {};
-        const arr = Object.entries(data).map(([key, value]) => ({ ...value, _key: key }));
+        const arr = Object.entries(data).map(([key, val]) => ({ ...val, _key: key }));
         renderTableFromData(arr);
       });
     }
 
-    fetchData(); // 初回表示
+    fetchData();
   </script>
-
-
-
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js"></script>
-
-
-
 </body>
 </html>
