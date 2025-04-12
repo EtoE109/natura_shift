@@ -308,14 +308,27 @@ function updateCellDisplay(dateStr) {
       const note = document.getElementById("note").value.trim();
       if (!name) return alert("名前を入力してください。");
 
-     
+      if (Object.keys(answers).length === 0) {
+        return alert("少なくとも1つの日付に回答してください。");
+      }
 
-      const data = JSON.parse(localStorage.getItem("surveyData") || "[]");
-      data.push({ name, note, answers });
-      localStorage.setItem("surveyData", JSON.stringify(data));
-      alert("回答を送信しました。");
-      location.reload();
+      const newData = {
+        name,
+        note,
+        answers
+      };
+
+      // Firebase に送信
+      firebase.database().ref("responses").push(newData)
+        .then(() => {
+          alert("ご回答ありがとうございました！");
+          location.reload();
+        })
+        .catch((error) => {
+          alert("送信エラー: " + error.message);
+        });
     }
+
 
     generateCalendar();
   </script>
