@@ -54,7 +54,6 @@
     <div id="startTimeArea">
       <label>[出勤]</label>
       <select id="startHour"></select><span id="startColon">：</span><select id="startMin"></select>
-
     </div>
     <div id="endTimeArea">
       <label>[退勤]</label>
@@ -71,8 +70,8 @@
 
   <button onclick="submitForm()">送信</button>
 
- <!-- Firebase SDK -->
- <script type="module">
+  <!-- Firebase SDK（モジュール形式） -->
+  <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
     import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
 
@@ -89,12 +88,10 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-
     let currentDate = "";
     let activeCell = null;
     let answers = {};
 
-    // 利用可能時間リスト
     const timeOptions = {
       Lunch: {
         start: [{h: 10, m: 0}, {h: 11, m: 30}],
@@ -158,9 +155,8 @@
       document.getElementById("timeSelector").style.display = "block";
     }
 
-    // 時間セレクト生成
     function updateSelectors(type) {
-     const startHour = document.getElementById("startHour");
+      const startHour = document.getElementById("startHour");
       const startMin = document.getElementById("startMin");
       const endHour = document.getElementById("endHour");
       const endMin = document.getElementById("endMin");
@@ -175,18 +171,14 @@
       if (type === "Lunch") {
         sArea.style.display = "inline";
         eArea.style.display = "inline";
-
-        // Lunch開始は「Lunch10（10:00）」か「Lunch（11:30）」の2択
         startHour.innerHTML = `
           <option value="10">Lunch10（10:00）</option>
           <option value="11">Lunch（11:30）</option>
         `;
-        startMin.innerHTML = ""; // ← ここを空にしておく
+        startMin.innerHTML = "";
         document.getElementById("startMin").style.display = "none";
-        document.getElementById("startColon").style.display = "none"; // 「：」非表示
+        document.getElementById("startColon").style.display = "none";
 
-
-        // 終了時間は選択なし対応
         endHour.innerHTML = "<option value=''>--</option>";
         endMin.innerHTML = "<option value=''>--</option>";
         timeOptions.Lunch.endH.forEach(h => {
@@ -195,12 +187,9 @@
         timeOptions.Lunch.endM.forEach(m => {
           endMin.innerHTML += `<option value="${m}">${m.toString().padStart(2, "0")}</option>`;
         });
-
       } else if (type === "Dinner") {
         sArea.style.display = "inline";
         eArea.style.display = "inline";
-
-        // Dinner開始
         timeOptions.Dinner.startH.forEach(h => {
           startHour.innerHTML += `<option value="${h}">${h}</option>`;
         });
@@ -210,8 +199,6 @@
         document.getElementById("startColon").style.display = "inline";
         document.getElementById("startMin").style.display = "inline";
 
-
-        // 終了時間（選択なし対応）
         endHour.innerHTML = "<option value=''>--</option>";
         endMin.innerHTML = "<option value=''>--</option>";
         timeOptions.Dinner.endH.forEach(h => {
@@ -220,12 +207,9 @@
         timeOptions.Dinner.endM.forEach(m => {
           endMin.innerHTML += `<option value="${m}">${m.toString().padStart(2, "0")}</option>`;
         });
-
       } else if (type === "Free") {
         sArea.style.display = "none";
         eArea.style.display = "inline";
-
-        // 終了時間のみ（選択なし対応）
         endHour.innerHTML = "<option value=''>--</option>";
         endMin.innerHTML = "<option value=''>--</option>";
         timeOptions.Free.endH.forEach(h => {
@@ -236,7 +220,6 @@
         });
       }
     }
-
 
     document.querySelectorAll("input[name='type']").forEach(radio => {
       radio.addEventListener("change", e => updateSelectors(e.target.value));
@@ -250,35 +233,25 @@
       }
 
       let start = null;
-
-      // Lunch の場合は startHour の value で10なら10:00、11なら11:30
       if (type === "Lunch") {
         const selected = document.getElementById("startHour").value;
         start = selected === "10" ? "10:00" : "11:30";
       }
-
-      // Dinner の場合は普通にセレクトから取得
       if (type === "Dinner") {
         const sH = document.getElementById("startHour").value;
         const sM = document.getElementById("startMin").value;
         start = `${sH}:${sM.padStart(2, "0")}`;
       }
 
-      // 終了時間（すべてのtypeで共通）→ 選択なしも許容
       let end = "";
       const eH = document.getElementById("endHour").value;
       const eM = document.getElementById("endMin").value;
-      if (eH && eM) {
-        end = `${eH}:${eM.padStart(2, "0")}`;
-      }
+      if (eH && eM) end = `${eH}:${eM.padStart(2, "0")}`;
 
-      // 回答データ保存
       answers[currentDate] = { type, start, end };
       updateCellDisplay(currentDate);
       closeSelector();
     }
-
-
 
     function updateCellDisplay(dateStr) {
       const cell = document.querySelector(`td[data-date='${dateStr}']`);
@@ -292,9 +265,7 @@
 
       let text = "";
       if (info.type === "Lunch") {
-        text = info.start?.startsWith("10")
-          ? `Lunch${info.start}~${info.end || ""}`
-          : `Lunch~${info.end || ""}`;
+        text = info.start?.startsWith("10") ? `Lunch${info.start}~${info.end || ""}` : `Lunch~${info.end || ""}`;
       } else if (info.type === "Dinner") {
         text = `${info.start || ""}~${info.end || ""}`;
       } else if (info.type === "Free") {
@@ -306,7 +277,6 @@
       label.textContent = text;
       cell.appendChild(label);
     }
-
 
     function clearAnswer() {
       delete answers[currentDate];
@@ -325,31 +295,25 @@
       const name = document.getElementById("username").value.trim();
       const note = document.getElementById("note").value.trim();
       if (!name) return alert("名前を入力してください。");
+      if (Object.keys(answers).length === 0) return alert("少なくとも1つの日付に回答してください。");
 
-      if (Object.keys(answers).length === 0) {
-        return alert("少なくとも1つの日付に回答してください。");
-      }
-
-      const newData = {
-        name,
-        note,
-        answers
-      };
-
-      // Firebase に送信
-      firebase.database().ref("responses").push(newData)
+      const newData = { name, note, answers };
+      push(ref(db, "responses"), newData)
         .then(() => {
           alert("ご回答ありがとうございました！");
           location.reload();
         })
-        .catch((error) => {
-          alert("送信エラー: " + error.message);
-        });
+        .catch(error => alert("送信エラー: " + error.message));
     }
 
-
     generateCalendar();
-  </script>
 
- </body>
+    // 関数をグローバル登録してボタンから呼べるようにする
+    window.saveAnswer = saveAnswer;
+    window.clearAnswer = clearAnswer;
+    window.closeSelector = closeSelector;
+    window.submitForm = submitForm;
+
+  </script>
+</body>
 </html>
