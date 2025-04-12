@@ -2,50 +2,77 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>アンケートフォーム</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>南口シフト</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    .date-cell.selected { background-color: #cce5ff; }
-    .note-area { margin-top: 20px; }
+    body { font-family: sans-serif; text-align: center; margin: 40px; }
+    table { margin: auto; border-collapse: collapse; }
+    th, td {
+      border: 1px solid #ccc;
+      width: 80px;
+      height: 60px;
+      vertical-align: top;
+      cursor: pointer;
+      position: relative;
+    }
+    td:hover { background-color: #f0f0f0; }
+    .selected { background-color: #a0e0a0 !important; }
+    .active { outline: 3px solid #0077cc; }
+    .time-label {
+      position: absolute;
+      bottom: 3px;
+      right: 3px;
+      font-size: 0.75em;
+      color: #333;
+    }
+    #timeSelector { display: none; margin-top: 20px; }
+    select { padding: 5px; margin: 5px; }
+    button { padding: 8px 16px; margin: 5px; }
+    textarea { width: 60%; height: 80px; margin-top: 20px; }
   </style>
 </head>
 <body>
-  <h1>アンケート回答</h1>
+  <h1>南口シフト</h1>
 
-  <label>名前：<input type="text" id="username" /></label>
+  <label>名前：</label>
+  <input type="text" id="username"><br><br>
 
-  <div id="calendar"></div>
+  <table id="calendar">
+    <thead>
+      <tr>
+        <th>日</th><th>月</th><th>火</th><th>水</th><th>木</th><th>金</th><th>土</th>
+      </tr>
+    </thead>
+    <tbody id="calendarBody"></tbody>
+  </table>
 
-  <div id="timeSelector" style="display:none; margin-top: 20px;">
-    <p>時間帯を選択：</p>
-    <label><input type="radio" name="type" value="Lunch">Lunch</label>
-    <label><input type="radio" name="type" value="Dinner">Dinner</label>
-    <label><input type="radio" name="type" value="Free">Free</label>
-    <br><br>
-    <label>開始：
+  <div id="timeSelector">
+    <div>
+      <label><input type="radio" name="type" value="Lunch">Lunch</label>
+      <label><input type="radio" name="type" value="Dinner">Dinner</label>
+      <label><input type="radio" name="type" value="Free">Free</label>
+    </div>
+    <div id="startTimeArea">
+      <label>[出勤]</label>
       <select id="startHour"></select><span id="startColon">：</span><select id="startMin"></select>
-    </label>
-    <label>～ 終了：
-      <select id="endHour"><option value="">--</option></select>：
-      <select id="endMin"><option value="">--</option></select>
-    </label>
-    <br><br>
+
+    </div>
+    <div id="endTimeArea">
+      <label>[退勤]</label>
+      <select id="endHour"></select>：<select id="endMin"></select>
+    </div>
     <button onclick="saveAnswer()">決定</button>
+    <button onclick="clearAnswer()">取り消し</button>
     <button onclick="closeSelector()">戻る</button>
-    <button onclick="removeAnswer()">取り消し</button>
   </div>
 
-  <div class="note-area">
-    <label>備考（任意）：</label><br>
-    <textarea id="note" rows="3" cols="40"></textarea>
-  </div>
+  <br><br>
+  <label>備考：</label><br>
+  <textarea id="note"></textarea><br><br>
 
-  <br>
   <button onclick="submitForm()">送信</button>
 
-  <!-- Firebase SDK -->
-  <script type="module">
+ <!-- Firebase SDK -->
+ <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
     import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
 
@@ -62,120 +89,236 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    const answers = {};
-    let currentDate = null;
 
-    // サンプル範囲（適宜動的に）
-    const startDate = new Date("2025-04-16");
-    const endDate = new Date("2025-04-30");
+    let currentDate = "";
+    let activeCell = null;
+    let answers = {};
 
-    function createCalendar() {
-      const container = document.getElementById("calendar");
-      container.innerHTML = "<h3>日付を選択：</h3>";
-      const table = document.createElement("table");
-      table.border = 1;
+    // 利用可能時間リスト
+    const timeOptions = {
+      Lunch: {
+        start: [{h: 10, m: 0}, {h: 11, m: 30}],
+        endH: [14,15,16,17],
+        endM: [0,15,30,45]
+      },
+      Dinner: {
+        startH: [15,16,17,18,19],
+        startM: [0,15,30,45],
+        endH: [20,21,22,23],
+        endM: [0,15,30,45]
+      },
+      Free: {
+        endH: [20,21,22,23],
+        endM: [0,15,30,45]
+      }
+    };
+
+    function generateCalendar() {
+      const range = JSON.parse(localStorage.getItem("surveyRange") || "null");
+      if (!range) {
+        document.body.innerHTML = "<p>シフト提出期間が設定されていません。管理者に確認してください。</p>";
+        return;
+      }
+      const start = new Date(range.start);
+      const end = new Date(range.end);
+      const tbody = document.getElementById("calendarBody");
+      tbody.innerHTML = "";
+
+      let current = new Date(start);
       let row = document.createElement("tr");
 
-      const weekdays = ["月", "火", "水", "木", "金", "土", "日"];
-      weekdays.forEach(d => {
-        const th = document.createElement("th");
-        th.textContent = d;
-        row.appendChild(th);
-      });
-      table.appendChild(row);
+      for (let i = 0; i < current.getDay(); i++) row.appendChild(document.createElement("td"));
 
-      const dates = [];
-      let temp = new Date(startDate);
-      while (temp <= endDate) {
-        dates.push(new Date(temp));
-        temp.setDate(temp.getDate() + 1);
-      }
-
-      let weekRow = document.createElement("tr");
-      const startDow = (startDate.getDay() + 6) % 7;
-      for (let i = 0; i < startDow; i++) {
-        weekRow.appendChild(document.createElement("td"));
-      }
-
-      dates.forEach((d, i) => {
-        if (weekRow.children.length === 7) {
-          table.appendChild(weekRow);
-          weekRow = document.createElement("tr");
-        }
-
+      while (current <= end) {
+        const dateStr = current.toISOString().split("T")[0];
         const td = document.createElement("td");
-        td.textContent = d.getDate();
-        td.className = "date-cell";
-        const iso = d.toISOString().split("T")[0];
-        td.dataset.date = iso;
-        td.onclick = () => openSelector(iso, td);
-        if (answers[iso]) {
-          td.textContent += "\n" + formatAnswer(answers[iso]);
-        }
-        weekRow.appendChild(td);
-      });
+        td.dataset.date = dateStr;
+        td.textContent = current.getDate();
+        td.addEventListener("click", () => openSelector(td));
 
-      while (weekRow.children.length < 7) {
-        weekRow.appendChild(document.createElement("td"));
+        row.appendChild(td);
+        if (current.getDay() === 6) {
+          tbody.appendChild(row);
+          row = document.createElement("tr");
+        }
+        current.setDate(current.getDate() + 1);
       }
-      table.appendChild(weekRow);
-      container.appendChild(table);
+
+      if (row.children.length > 0) {
+        while (row.children.length < 7) row.appendChild(document.createElement("td"));
+        tbody.appendChild(row);
+      }
     }
 
-    function openSelector(date, td) {
-      document.querySelectorAll(".date-cell").forEach(cell => cell.classList.remove("selected"));
-      td.classList.add("selected");
-      currentDate = date;
+    function openSelector(td) {
+      currentDate = td.dataset.date;
+      if (activeCell) activeCell.classList.remove("active");
+      td.classList.add("active");
+      activeCell = td;
       document.getElementById("timeSelector").style.display = "block";
+    }
+
+    // 時間セレクト生成
+    function updateSelectors(type) {
+     const startHour = document.getElementById("startHour");
+      const startMin = document.getElementById("startMin");
+      const endHour = document.getElementById("endHour");
+      const endMin = document.getElementById("endMin");
+      startHour.innerHTML = "";
+      startMin.innerHTML = "";
+      endHour.innerHTML = "";
+      endMin.innerHTML = "";
+
+      const sArea = document.getElementById("startTimeArea");
+      const eArea = document.getElementById("endTimeArea");
+
+      if (type === "Lunch") {
+        sArea.style.display = "inline";
+        eArea.style.display = "inline";
+
+        // Lunch開始は「Lunch10（10:00）」か「Lunch（11:30）」の2択
+        startHour.innerHTML = `
+          <option value="10">Lunch10（10:00）</option>
+          <option value="11">Lunch（11:30）</option>
+        `;
+        startMin.innerHTML = ""; // ← ここを空にしておく
+        document.getElementById("startMin").style.display = "none";
+        document.getElementById("startColon").style.display = "none"; // 「：」非表示
+
+
+        // 終了時間は選択なし対応
+        endHour.innerHTML = "<option value=''>--</option>";
+        endMin.innerHTML = "<option value=''>--</option>";
+        timeOptions.Lunch.endH.forEach(h => {
+          endHour.innerHTML += `<option value="${h}">${h}</option>`;
+        });
+        timeOptions.Lunch.endM.forEach(m => {
+          endMin.innerHTML += `<option value="${m}">${m.toString().padStart(2, "0")}</option>`;
+        });
+
+      } else if (type === "Dinner") {
+        sArea.style.display = "inline";
+        eArea.style.display = "inline";
+
+        // Dinner開始
+        timeOptions.Dinner.startH.forEach(h => {
+          startHour.innerHTML += `<option value="${h}">${h}</option>`;
+        });
+        timeOptions.Dinner.startM.forEach(m => {
+          startMin.innerHTML += `<option value="${m}">${m.toString().padStart(2, "0")}</option>`;
+        });
+        document.getElementById("startColon").style.display = "inline";
+        document.getElementById("startMin").style.display = "inline";
+
+
+        // 終了時間（選択なし対応）
+        endHour.innerHTML = "<option value=''>--</option>";
+        endMin.innerHTML = "<option value=''>--</option>";
+        timeOptions.Dinner.endH.forEach(h => {
+          endHour.innerHTML += `<option value="${h}">${h}</option>`;
+        });
+        timeOptions.Dinner.endM.forEach(m => {
+          endMin.innerHTML += `<option value="${m}">${m.toString().padStart(2, "0")}</option>`;
+        });
+
+      } else if (type === "Free") {
+        sArea.style.display = "none";
+        eArea.style.display = "inline";
+
+        // 終了時間のみ（選択なし対応）
+        endHour.innerHTML = "<option value=''>--</option>";
+        endMin.innerHTML = "<option value=''>--</option>";
+        timeOptions.Free.endH.forEach(h => {
+          endHour.innerHTML += `<option value="${h}">${h}</option>`;
+        });
+        timeOptions.Free.endM.forEach(m => {
+          endMin.innerHTML += `<option value="${m}">${m.toString().padStart(2, "0")}</option>`;
+        });
+      }
+    }
+
+
+    document.querySelectorAll("input[name='type']").forEach(radio => {
+      radio.addEventListener("change", e => updateSelectors(e.target.value));
+    });
+
+    function saveAnswer() {
+      const type = document.querySelector("input[name='type']:checked")?.value;
+      if (!type) {
+        alert("Lunch / Dinner / Free を選択してください。");
+        return;
+      }
+
+      let start = null;
+
+      // Lunch の場合は startHour の value で10なら10:00、11なら11:30
+      if (type === "Lunch") {
+        const selected = document.getElementById("startHour").value;
+        start = selected === "10" ? "10:00" : "11:30";
+      }
+
+      // Dinner の場合は普通にセレクトから取得
+      if (type === "Dinner") {
+        const sH = document.getElementById("startHour").value;
+        const sM = document.getElementById("startMin").value;
+        start = `${sH}:${sM.padStart(2, "0")}`;
+      }
+
+      // 終了時間（すべてのtypeで共通）→ 選択なしも許容
+      let end = "";
+      const eH = document.getElementById("endHour").value;
+      const eM = document.getElementById("endMin").value;
+      if (eH && eM) {
+        end = `${eH}:${eM.padStart(2, "0")}`;
+      }
+
+      // 回答データ保存
+      answers[currentDate] = { type, start, end };
+      updateCellDisplay(currentDate);
+      closeSelector();
+    }
+
+
+
+    function updateCellDisplay(dateStr) {
+      const cell = document.querySelector(`td[data-date='${dateStr}']`);
+      cell.classList.add("selected");
+
+      let label = cell.querySelector(".time-label");
+      if (label) label.remove();
+
+      const info = answers[dateStr];
+      if (!info) return;
+
+      let text = "";
+      if (info.type === "Lunch") {
+        text = info.start?.startsWith("10")
+          ? `Lunch${info.start}~${info.end || ""}`
+          : `Lunch~${info.end || ""}`;
+      } else if (info.type === "Dinner") {
+        text = `${info.start || ""}~${info.end || ""}`;
+      } else if (info.type === "Free") {
+        text = `Free~${info.end || ""}`;
+      }
+
+      label = document.createElement("div");
+      label.className = "time-label";
+      label.textContent = text;
+      cell.appendChild(label);
+    }
+
+
+    function clearAnswer() {
+      delete answers[currentDate];
+      const cell = document.querySelector(`td[data-date='${currentDate}']`);
+      cell.classList.remove("selected");
+      cell.querySelector(".time-label")?.remove();
+      closeSelector();
     }
 
     function closeSelector() {
       document.getElementById("timeSelector").style.display = "none";
-      document.querySelectorAll(".date-cell").forEach(cell => cell.classList.remove("selected"));
-      currentDate = null;
-    }
-
-    function formatAnswer(ans) {
-      if (!ans) return "";
-      if (ans.type === "Lunch") {
-        return ans.start.startsWith("10") ? `Lunch10~${ans.end || ""}` : `Lunch~${ans.end || ""}`;
-      }
-      if (ans.type === "Dinner") return `${ans.start}~${ans.end || ""}`;
-      if (ans.type === "Free") return `Free~${ans.end || ""}`;
-      return "";
-    }
-
-    function saveAnswer() {
-      const type = document.querySelector("input[name='type']:checked")?.value;
-      if (!type) return alert("時間帯を選択してください。");
-
-      let start = "", end = "";
-      if (type === "Lunch") {
-        const h = document.getElementById("startHour").value;
-        start = h === "10" ? "10:00" : "11:30";
-        end = `${document.getElementById("endHour").value}:${document.getElementById("endMin").value}`;
-      } else if (type === "Dinner") {
-        start = `${document.getElementById("startHour").value}:${document.getElementById("startMin").value}`;
-        const eH = document.getElementById("endHour").value;
-        const eM = document.getElementById("endMin").value;
-        if (eH && eM) end = `${eH}:${eM}`;
-      } else if (type === "Free") {
-        const eH = document.getElementById("endHour").value;
-        const eM = document.getElementById("endMin").value;
-        if (eH && eM) end = `${eH}:${eM}`;
-      }
-
-      answers[currentDate] = { type, start, end };
-      createCalendar();
-      closeSelector();
-    }
-
-    function removeAnswer() {
-      if (currentDate) {
-        delete answers[currentDate];
-        createCalendar();
-        closeSelector();
-      }
+      if (activeCell) activeCell.classList.remove("active");
     }
 
     function submitForm() {
@@ -183,22 +326,30 @@
       const note = document.getElementById("note").value.trim();
       if (!name) return alert("名前を入力してください。");
 
+      if (Object.keys(answers).length === 0) {
+        return alert("少なくとも1つの日付に回答してください。");
+      }
+
       const newData = {
         name,
         note,
         answers
       };
 
-      const refPath = ref(db, "responses");
-      push(refPath, newData).then(() => {
-        alert("ご回答ありがとうございました！");
-        location.reload();
-      });
+      // Firebase に送信
+      firebase.database().ref("responses").push(newData)
+        .then(() => {
+          alert("ご回答ありがとうございました！");
+          location.reload();
+        })
+        .catch((error) => {
+          alert("送信エラー: " + error.message);
+        });
     }
 
-    window.onload = () => {
-      createCalendar();
-    };
+
+    generateCalendar();
   </script>
-</body>
+
+ </body>
 </html>
