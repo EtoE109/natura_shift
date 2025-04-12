@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>管理者画面</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-bottom: 40px;
+      table-layout: fixed;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
+      text-align: center;
+      height: 40px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    th {
+      background-color: #f0f0f0;
+    }
+
+    /* ✔ チェック欄 */
+    th:first-child,
+    td:first-child {
+      width: 30px;
+    }
+
+    /* 名前欄 */
+    th:nth-child(2),
+    td:nth-child(2) {
+      width: 120px;
+      text-align: left;
+    }
+
+    /* 回答欄 */
+    td,
+    th {
+      min-width: 90px;
+    }
+
+    /* 備考欄（備考表） */
+    .note-table td:last-child,
+    .note-table th:last-child {
+      width: 200px;
+      text-align: left;
+    }
+
+
+    .name-col {
+      font-weight: bold;
+    }
+
+    .controls {
+      margin-top: 20px;
+    }
+
+    /* 回答表・備考表 共通：交互に色をつける */
+    table tbody tr:nth-child(even) {
+      background-color: #b1e5fbcf;
+    }
+
+  </style>
+</head>
+<body>
+  <script>
+    const password = "na4575";
+    const input = prompt("管理者パスワードを入力してください：");
+    if (input !== password) {
+      alert("パスワードが正しくありません。");
+      window.location.href = "index.html";
+    }
+  </script>
+
+  <h1>南口シフト（管理者画面）</h1>
+
+  <h3>シフト提出期間</h3>
+  <label>開始日: <input type="date" id="startDate"></label>
+  <label>終了日: <input type="date" id="endDate"></label>
+  <button onclick="saveRange()">期間を保存</button>
+  <p id="rangeSaved" style="color: green;"></p>
+
+  <div class="controls">
+    <button onclick="exportCSV()">Excelダウンロード</button>
+    <button onclick="deleteSelected()">選択した回答を削除</button>
+    <button onclick="deleteAll()">すべての回答を削除</button>
+  </div>
+
+  <div id="tableContainer"></div>
+
+  <script>
+    const weekdays = ["月", "火", "水", "木", "金", "土","日"];
+   
+      function saveRange() {
+      const start = document.getElementById("startDate").value;
+      const end = document.getElementById("endDate").value;
+      if (!start || !end) {
+        alert("開始日と終了日を入力してください。");
+        return;
+      }
+      localStorage.setItem("surveyRange", JSON.stringify({ start, end }));
+      document.getElementById("rangeSaved").textContent = `保存されました：${start} ～ ${end}`;
+      renderTables();
+    }
+
+    function getDatesInRange(start, end) {
+      const weekdays = ["月", "火", "水", "木", "金", "土", "日"];
+      const dateArray = [];
+
+      let current = new Date(start);
+      const last = new Date(end);
+
+      while (current <= last) {
+        const iso = current.toISOString().split("T")[0];
+        const day = current.getDate();
+
+        // JSのgetDay(): 0=日曜, 1=月曜, ..., 6=土曜
+        let jsDow = current.getDay(); // 0〜6（日曜スタート）
+
+        // 月曜スタートに補正（0=月曜, ..., 6=日曜）
+        const dow = (jsDow === 0) ? 6 : jsDow - 1;
+
+        const youbi = weekdays[dow];
+
+        dateArray.push({ iso, day, youbi, dow });
+        current.setDate(current.getDate() + 1);
+      }
+
+      return dateArray;
+    }
+
+
+    function splitWeeks(dates) {
+      const weeks = [];
+      let week = [];
+
+      dates.forEach(date => {
+        if (week.length === 0 && date.dow !== 0) {
+          // 週の先頭に空白を追加（例：火曜スタートなら月用に1つ空白）
+          for (let i = 0; i < date.dow; i++) {
+            week.push(null);
+          }
+        }
+
+        week.push(date);
+
+        if (week.length === 7) {
+          weeks.push(week);
+          week = [];
+        }
+      });
+
+      // 最後の週が7個未満なら空白で埋める
+      if (week.length > 0 && week.length < 7) {
+        while (week.length < 7) {
+          week.push(null);
+        }
+        weeks.push(week);
+      }
+
+      return weeks;
+    }
+
+
+    function formatTime(answer) {
+      if (!answer || !answer.type) return "";
+      const { type, start, end } = answer;
+      if (type === "Lunch") {
+        return start?.startsWith("10") ? `Lunch10~${end || ""}` : `Lunch~${end || ""}`;
+      }
+      if (type === "Dinner") return `${start || ""}~${end || ""}`;
+      if (type === "Free") return `Free~${end || ""}`;
+      return "";
+    }
+
+    function renderTables() {
+      const container = document.getElementById("tableContainer");
+      container.innerHTML = "";
+
+      const range = JSON.parse(localStorage.getItem("surveyRange") || "null");
+      const data = JSON.parse(localStorage.getItem("surveyData") || "[]");
+
+      if (!range) {
+        container.innerHTML = "<p>期間が設定されていません。</p>";
+        return;
+      }
+
+      const allDates = getDatesInRange(range.start, range.end);
+      const weeks = splitWeeks(allDates);
+
+      weeks.forEach((weekDates, weekIndex) => {
+        const table = document.createElement("table");
+
+        // ヘッダー1行目（曜日）
+        const headRow1 = document.createElement("tr");
+        headRow1.innerHTML = "<th></th><th>名前</th>";
+        weekDates.forEach(d => {
+          const th = document.createElement("th");
+          th.textContent = d ? d.youbi : "";
+          headRow1.appendChild(th);
+        });
+
+        // ヘッダー2行目（日付）
+        const headRow2 = document.createElement("tr");
+        headRow2.innerHTML = "<th>✔</th><th></th>";
+        weekDates.forEach(d => {
+          const th = document.createElement("th");
+          th.textContent = d ? d.day : "";
+          headRow2.appendChild(th);
+        });
+
+        const thead = document.createElement("thead");
+        thead.appendChild(headRow1);
+        thead.appendChild(headRow2);
+        table.appendChild(thead);
+
+        const tbody = document.createElement("tbody");
+
+        data.forEach((entry, index) => {
+          const row = document.createElement("tr");
+
+          // チェックボックス（最初の表のみ）
+          const checkboxCell = document.createElement("td");
+          if (weekIndex === 0) {
+            checkboxCell.innerHTML = `<input type="checkbox" class="deleteCheckbox" data-index="${index}">`;
+          }
+          row.appendChild(checkboxCell);
+
+          // 名前
+          const nameCell = document.createElement("td");
+          nameCell.textContent = entry.name;
+          nameCell.className = "name-col";
+          row.appendChild(nameCell);
+
+          // 各日の回答
+          weekDates.forEach(d => {
+            const td = document.createElement("td");
+            if (d) td.textContent = formatTime(entry.answers[d.iso]);
+            row.appendChild(td);
+          });
+
+          tbody.appendChild(row);
+        });
+
+        table.appendChild(tbody);
+        container.appendChild(table);
+      });
+
+      // === 備考表の追加 ===
+      const notes = data
+        .map((entry, index) => ({ name: entry.name, note: entry.note, index }))
+        .filter(e => e.note && e.note.trim() !== "");
+
+      if (notes.length > 0) {
+        const noteTable = document.createElement("table");
+        noteTable.className = "note-table";
+        const head = document.createElement("thead");
+        const headRow = document.createElement("tr");
+        headRow.innerHTML = "<th>✔</th><th>名前</th><th>備考</th>";
+        head.appendChild(headRow);
+        noteTable.appendChild(head);
+
+        const body = document.createElement("tbody");
+        notes.forEach(e => {
+          const row = document.createElement("tr");
+
+          const check = document.createElement("td");
+          check.innerHTML = `<input type="checkbox" class="deleteCheckbox" data-index="${e.index}">`;
+          row.appendChild(check);
+
+          const name = document.createElement("td");
+          name.textContent = e.name;
+          name.className = "name-col";
+          row.appendChild(name);
+
+          const note = document.createElement("td");
+          note.textContent = e.note;
+          row.appendChild(note);
+
+          body.appendChild(row);
+        });
+
+        noteTable.appendChild(body);
+        container.appendChild(noteTable);
+      }
+    }
+
+    function deleteSelected() {
+      const checkboxes = document.querySelectorAll(".deleteCheckbox:checked");
+      if (checkboxes.length === 0) {
+        alert("削除する行を選択してください。");
+        return;
+      }
+      if (!confirm("選択された回答を削除しますか？")) return;
+
+      let data = JSON.parse(localStorage.getItem("surveyData") || "[]");
+      const indexes = Array.from(checkboxes).map(cb => parseInt(cb.dataset.index));
+      data = data.filter((_, i) => !indexes.includes(i));
+      localStorage.setItem("surveyData", JSON.stringify(data));
+      renderTables();
+    }
+
+    function deleteAll() {
+      if (confirm("すべての回答を削除しますか？")) {
+        localStorage.removeItem("surveyData");
+        renderTables();
+      }
+    }
+
+    function exportCSV() {
+      const range = JSON.parse(localStorage.getItem("surveyRange") || "null");
+      const data = JSON.parse(localStorage.getItem("surveyData") || "[]");
+      if (!range || data.length === 0) {
+        alert("出力できるデータがありません。");
+        return;
+      }
+
+      const dates = getDatesInRange(range.start, range.end);
+      const header = ["名前", ...dates.map(d => `${d.day}(${d.youbi})`), "備考"];
+      const rows = [header];
+
+      data.forEach(entry => {
+        const row = [entry.name];
+        dates.forEach(d => {
+          row.push(formatTime(entry.answers[d.iso]));
+        });
+        row.push(entry.note || "");
+        rows.push(row);
+      });
+
+      const csvContent = "\uFEFF" + rows.map(r => r.map(cell => `"${cell}"`).join(",")).join("\r\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "アンケート集計.csv";
+      a.click();
+    }
+
+    renderTables();
+  </script>
+</body>
+</html>
