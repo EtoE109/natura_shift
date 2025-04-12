@@ -104,17 +104,28 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js"></script>
 
-  <script>
-    // ✅ あなたの Firebase 設定に差し替えてください
+  <script type="module">
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+    // TODO: Add SDKs for Firebase products that you want to use
+    // https://firebase.google.com/docs/web/setup#available-libraries
+
+    // Your web app's Firebase configuration
     const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-      databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT_ID.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
+      apiKey: "AIzaSyDToeM2cPECKb22wElwSkCDsOMiEv_QU10",
+      authDomain: "natura-shift.firebaseapp.com",
+      databaseURL: "https://natura-shift-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "natura-shift",
+      storageBucket: "natura-shift.firebasestorage.app",
+      messagingSenderId: "485985022346",
+      appId: "1:485985022346:web:29b59ab107cee81357d873"
     };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+  </script>
+
+<script>
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
@@ -343,25 +354,13 @@
     fetchData(); // 初回表示
   </script>
 
-<script type="module">
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
 
-  // Your web app's Firebase configuration
-  const firebaseConfig = {
-    apiKey: "AIzaSyDToeM2cPECKb22wElwSkCDsOMiEv_QU10",
-    authDomain: "natura-shift.firebaseapp.com",
-    databaseURL: "https://natura-shift-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "natura-shift",
-    storageBucket: "natura-shift.firebasestorage.app",
-    messagingSenderId: "485985022346",
-    appId: "1:485985022346:web:29b59ab107cee81357d873"
-  };
 
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-</script>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js"></script>
+
+
+
 </body>
 </html>
