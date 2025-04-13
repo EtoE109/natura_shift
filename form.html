@@ -70,10 +70,9 @@
 
   <button onclick="submitForm()">送信</button>
 
-  <!-- Firebase SDK（モジュール形式） -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-    import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
+    import { getDatabase, ref, push, get } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDToeM2cPECKb22wElwSkCDsOMiEv_QU10",
@@ -87,6 +86,8 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+    const configRef = ref(db, "config/period");
+    const responsesRef = ref(db, "responses");
 
     let currentDate = "";
     let activeCell = null;
@@ -110,20 +111,14 @@
       }
     };
 
-    function generateCalendar() {
-      const range = JSON.parse(localStorage.getItem("surveyRange") || "null");
-      if (!range) {
-        document.body.innerHTML = "<p>シフト提出期間が設定されていません。管理者に確認してください。</p>";
-        return;
-      }
-      const start = new Date(range.start);
-      const end = new Date(range.end);
+    function generateCalendar(startStr, endStr) {
+      const start = new Date(startStr);
+      const end = new Date(endStr);
       const tbody = document.getElementById("calendarBody");
       tbody.innerHTML = "";
 
       let current = new Date(start);
       let row = document.createElement("tr");
-
       for (let i = 0; i < current.getDay(); i++) row.appendChild(document.createElement("td"));
 
       while (current <= end) {
@@ -132,7 +127,6 @@
         td.dataset.date = dateStr;
         td.textContent = current.getDate();
         td.addEventListener("click", () => openSelector(td));
-
         row.appendChild(td);
         if (current.getDay() === 6) {
           tbody.appendChild(row);
@@ -140,7 +134,6 @@
         }
         current.setDate(current.getDate() + 1);
       }
-
       if (row.children.length > 0) {
         while (row.children.length < 7) row.appendChild(document.createElement("td"));
         tbody.appendChild(row);
@@ -162,8 +155,8 @@
       const endMin = document.getElementById("endMin");
       startHour.innerHTML = "";
       startMin.innerHTML = "";
-      endHour.innerHTML = "";
-      endMin.innerHTML = "";
+      endHour.innerHTML = "<option value=''>--</option>";
+      endMin.innerHTML = "<option value=''>--</option>";
 
       const sArea = document.getElementById("startTimeArea");
       const eArea = document.getElementById("endTimeArea");
@@ -175,12 +168,8 @@
           <option value="10">Lunch10（10:00）</option>
           <option value="11">Lunch（11:30）</option>
         `;
-        startMin.innerHTML = "";
         document.getElementById("startMin").style.display = "none";
         document.getElementById("startColon").style.display = "none";
-
-        endHour.innerHTML = "<option value=''>--</option>";
-        endMin.innerHTML = "<option value=''>--</option>";
         timeOptions.Lunch.endH.forEach(h => {
           endHour.innerHTML += `<option value="${h}">${h}</option>`;
         });
@@ -190,17 +179,14 @@
       } else if (type === "Dinner") {
         sArea.style.display = "inline";
         eArea.style.display = "inline";
+        document.getElementById("startMin").style.display = "inline";
+        document.getElementById("startColon").style.display = "inline";
         timeOptions.Dinner.startH.forEach(h => {
           startHour.innerHTML += `<option value="${h}">${h}</option>`;
         });
         timeOptions.Dinner.startM.forEach(m => {
           startMin.innerHTML += `<option value="${m}">${m.toString().padStart(2, "0")}</option>`;
         });
-        document.getElementById("startColon").style.display = "inline";
-        document.getElementById("startMin").style.display = "inline";
-
-        endHour.innerHTML = "<option value=''>--</option>";
-        endMin.innerHTML = "<option value=''>--</option>";
         timeOptions.Dinner.endH.forEach(h => {
           endHour.innerHTML += `<option value="${h}">${h}</option>`;
         });
@@ -210,8 +196,6 @@
       } else if (type === "Free") {
         sArea.style.display = "none";
         eArea.style.display = "inline";
-        endHour.innerHTML = "<option value=''>--</option>";
-        endMin.innerHTML = "<option value=''>--</option>";
         timeOptions.Free.endH.forEach(h => {
           endHour.innerHTML += `<option value="${h}">${h}</option>`;
         });
@@ -227,11 +211,7 @@
 
     function saveAnswer() {
       const type = document.querySelector("input[name='type']:checked")?.value;
-      if (!type) {
-        alert("Lunch / Dinner / Free を選択してください。");
-        return;
-      }
-
+      if (!type) return alert("タイプを選択してください。");
       let start = null;
       if (type === "Lunch") {
         const selected = document.getElementById("startHour").value;
@@ -242,12 +222,10 @@
         const sM = document.getElementById("startMin").value;
         start = `${sH}:${sM.padStart(2, "0")}`;
       }
-
       let end = "";
       const eH = document.getElementById("endHour").value;
       const eM = document.getElementById("endMin").value;
       if (eH && eM) end = `${eH}:${eM.padStart(2, "0")}`;
-
       answers[currentDate] = { type, start, end };
       updateCellDisplay(currentDate);
       closeSelector();
@@ -256,13 +234,10 @@
     function updateCellDisplay(dateStr) {
       const cell = document.querySelector(`td[data-date='${dateStr}']`);
       cell.classList.add("selected");
-
       let label = cell.querySelector(".time-label");
       if (label) label.remove();
-
       const info = answers[dateStr];
       if (!info) return;
-
       let text = "";
       if (info.type === "Lunch") {
         text = info.start?.startsWith("10") ? `Lunch${info.start}~${info.end || ""}` : `Lunch~${info.end || ""}`;
@@ -271,7 +246,6 @@
       } else if (info.type === "Free") {
         text = `Free~${info.end || ""}`;
       }
-
       label = document.createElement("div");
       label.className = "time-label";
       label.textContent = text;
@@ -296,24 +270,22 @@
       const note = document.getElementById("note").value.trim();
       if (!name) return alert("名前を入力してください。");
       if (Object.keys(answers).length === 0) return alert("少なくとも1つの日付に回答してください。");
-
       const newData = { name, note, answers };
-      push(ref(db, "responses"), newData)
-        .then(() => {
-          alert("ご回答ありがとうございました！");
-          location.reload();
-        })
-        .catch(error => alert("送信エラー: " + error.message));
+      push(responsesRef, newData).then(() => {
+        alert("ご回答ありがとうございました！");
+        location.reload();
+      }).catch(err => alert("送信エラー：" + err.message));
     }
 
-    generateCalendar();
-
-    // 関数をグローバル登録してボタンから呼べるようにする
-    window.saveAnswer = saveAnswer;
-    window.clearAnswer = clearAnswer;
-    window.closeSelector = closeSelector;
-    window.submitForm = submitForm;
-
+    // 起動時に期間を取得 → カレンダー生成
+    get(configRef).then(snapshot => {
+      const range = snapshot.val();
+      if (!range) {
+        document.body.innerHTML = "<p>提出期間がまだ設定されていません。管理者に確認してください。</p>";
+        return;
+      }
+      generateCalendar(range.start, range.end);
+    });
   </script>
 </body>
 </html>

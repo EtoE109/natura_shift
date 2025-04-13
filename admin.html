@@ -83,11 +83,11 @@
 
   <div id="tableContainer" class="table-wrapper"></div>
 
-  <!-- Firebase SDK -->
+  <!-- Firebase -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
     import {
-      getDatabase, ref, onValue, remove, get, push
+      getDatabase, ref, onValue, remove, get, set
     } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
 
     const firebaseConfig = {
@@ -103,16 +103,8 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     const dbRef = ref(db, "responses");
+    const configRef = ref(db, "config/period");
     const weekdays = ["月", "火", "水", "木", "金", "土", "日"];
-
-    function saveRange() {
-      const start = document.getElementById("startDate").value;
-      const end = document.getElementById("endDate").value;
-      if (!start || !end) return alert("開始日と終了日を入力してください。");
-      localStorage.setItem("surveyRange", JSON.stringify({ start, end }));
-      document.getElementById("rangeSaved").textContent = `保存されました：${start} ～ ${end}`;
-      fetchData();
-    }
 
     function getDatesInRange(start, end) {
       const dateArray = [];
@@ -160,14 +152,16 @@
       return "";
     }
 
-    function renderTableFromData(data) {
+    function renderTableFromData(data, range) {
       const container = document.getElementById("tableContainer");
       container.innerHTML = "";
-      const range = JSON.parse(localStorage.getItem("surveyRange") || "null");
       if (!range) {
         container.innerHTML = "<p>期間が設定されていません。</p>";
         return;
       }
+
+      document.getElementById("startDate").value = range.start;
+      document.getElementById("endDate").value = range.end;
 
       const allDates = getDatesInRange(range.start, range.end);
       const weeks = splitWeeks(allDates);
@@ -277,48 +271,62 @@
     }
 
     function exportCSV() {
-      const range = JSON.parse(localStorage.getItem("surveyRange") || "null");
-      if (!range) return alert("期間が未設定です。");
+      get(configRef).then(snapshot => {
+        const range = snapshot.val();
+        if (!range) return alert("期間が未設定です。");
 
-      const dates = getDatesInRange(range.start, range.end);
-      const header = ["名前", ...dates.map(d => `${d.day}(${d.youbi})`), "備考"];
-      const rows = [header];
+        const dates = getDatesInRange(range.start, range.end);
+        const header = ["名前", ...dates.map(d => `${d.day}(${d.youbi})`), "備考"];
+        const rows = [header];
 
-      get(dbRef).then(snapshot => {
-        const data = snapshot.val() || {};
-        Object.entries(data).forEach(([key, entry]) => {
-          const row = [entry.name];
-          dates.forEach(d => {
-            row.push(formatTime(entry.answers?.[d.iso]));
+        get(dbRef).then(snapshot => {
+          const data = snapshot.val() || {};
+          Object.entries(data).forEach(([key, entry]) => {
+            const row = [entry.name];
+            dates.forEach(d => {
+              row.push(formatTime(entry.answers?.[d.iso]));
+            });
+            row.push(entry.note || "");
+            rows.push(row);
           });
-          row.push(entry.note || "");
-          rows.push(row);
-        });
 
-        const csv = "\uFEFF" + rows.map(r => r.map(cell => `"${cell}"`).join(",")).join("\r\n");
-        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "アンケート集計.csv";
-        a.click();
+          const csv = "\uFEFF" + rows.map(r => r.map(cell => `"${cell}"`).join(",")).join("\r\n");
+          const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "アンケート集計.csv";
+          a.click();
+        });
+      });
+    }
+
+    function saveRange() {
+      const start = document.getElementById("startDate").value;
+      const end = document.getElementById("endDate").value;
+      if (!start || !end) return alert("開始日と終了日を入力してください。");
+      set(configRef, { start, end }).then(() => {
+        document.getElementById("rangeSaved").textContent = `保存されました：${start} ～ ${end}`;
+        fetchData();
       });
     }
 
     function fetchData() {
-      onValue(dbRef, snapshot => {
-        const data = snapshot.val() || {};
+      Promise.all([get(configRef), get(dbRef)]).then(([rangeSnap, dataSnap]) => {
+        const range = rangeSnap.val();
+        const data = dataSnap.val() || {};
         const arr = Object.entries(data).map(([key, val]) => ({ ...val, _key: key }));
-        renderTableFromData(arr);
+        renderTableFromData(arr, range);
       });
     }
 
-    // ✅ イベントバインド（ボタンが反応しない対策）
+    // イベント登録
     document.getElementById("saveBtn").addEventListener("click", saveRange);
     document.getElementById("exportBtn").addEventListener("click", exportCSV);
     document.getElementById("deleteSelBtn").addEventListener("click", deleteSelected);
     document.getElementById("deleteAllBtn").addEventListener("click", deleteAll);
 
+    // 初期読み込み
     fetchData();
   </script>
 </body>
