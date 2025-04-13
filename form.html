@@ -269,10 +269,9 @@
       const name = document.getElementById("username").value.trim();
       const note = document.getElementById("note").value.trim();
       if (!name) return alert("名前を入力してください。");
-      if (Object.keys(answers).length === 0) return alert("少なくとも1つの日付に回答してください。");
       const newData = { name, note, answers };
       push(responsesRef, newData).then(() => {
-        alert("ご回答ありがとうございました！");
+        alert("回答が送信されました");
         location.reload();
       }).catch(err => alert("送信エラー：" + err.message));
     }
