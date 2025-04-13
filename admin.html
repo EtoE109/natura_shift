@@ -26,19 +26,31 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    th {
-      background-color: #f0f0f0;
-    }
-    th:first-child, td:first-child {
+
+    /* ✔ チェック欄（最小幅） */
+    th:first-child,
+    td:first-child {
       width: 30px;
+      max-width: 30px;
+      min-width: 30px;
+      text-align: center;
     }
-    th:nth-child(2), td:nth-child(2) {
-      width: 120px;
+
+    /* 名前欄（固定） */
+    th:nth-child(2),
+    td:nth-child(2) {
+      width: 90px;
+      min-width: 80px;
+      max-width: 100px;
       text-align: left;
     }
+
+    /* 残りの回答列（すべて統一幅） */
     td, th {
       min-width: 120px;
+      max-width: 120px;
     }
+
     .note-table td:last-child,
     .note-table th:last-child {
       width: 200px;
