@@ -286,6 +286,13 @@
       }
       generateCalendar(range.start, range.end);
     });
+
+    // 関数をグローバル登録してボタンから呼べるようにする
+    window.saveAnswer = saveAnswer;
+    window.clearAnswer = clearAnswer;
+    window.closeSelector = closeSelector;
+    window.submitForm = submitForm;
+
   </script>
 </body>
 </html>
