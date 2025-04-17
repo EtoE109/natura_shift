@@ -4,80 +4,115 @@
   <meta charset="UTF-8">
   <title>南口シフト - 管理者画面</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body { font-family: sans-serif; padding: 20px; text-align: center; }
-    h1 { margin-bottom: 30px; }
-    .table-wrapper {
+    <style>
+      body {
+        font-family: sans-serif;
+        padding: 20px;
+        text-align: center;
+      }
+
+      .table-wrapper {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+      }
+
+      .scroll-container {
       overflow-x: auto;
       width: 100%;
-    }
-    table {
-      border-collapse: collapse;
-      margin: 20px auto;
-      table-layout: fixed;
-      min-width: 900px;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 6px;
-      text-align: center;
-      height: 40px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      padding-bottom: 1rem;
     }
 
-    /* ✔ チェック列 */
-    th:first-child,
-    td:first-child {
-      width: 30px;
-      min-width: 30px;
-      max-width: 30px;
-    }
+      .scroll-container::-webkit-scrollbar {
+        height: 6px;
+      }
 
-    /* 🟩 名前列（コンパクト） */
-    th:nth-child(2),
-    td:nth-child(2) {
-      width: 100px;
-      min-width: 90px;
-      max-width: 110px;
-    }
+      .scroll-container::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 3px;
+      }
 
-    /* 📅 回答欄（最長表示に合わせる） */
-    td, th {
-      min-width: 140px;
-      max-width: 140px;
-      text-align: center;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+      table {
+        border-collapse: collapse;
+        margin: 20px auto;
+        table-layout: fixed;
+        min-width: calc(30px + 100px + 140px * 7); /* ✔ + 名前 + 7日 */
+      }
 
+      th, td {
+        border: 1px solid #ccc;
+        padding: 6px;
+        height: 40px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: center;
+        min-width: 140px;
+        max-width: 140px;
+      }
 
-    .note-table td:last-child,
-    .note-table th:last-child {
-      width: 200px;
-      text-align: left;
-    }
-    .name-col {
-      font-weight: bold;
-    }
-    .controls {
-      margin-top: 20px;
-    }
-    table tbody tr:nth-child(even) {
-      background-color: #b9e5f8e0;
-    }
-    label { margin: 0 10px; }
-  </style>
+      th:first-child, td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 3;
+        background-color: #fff;
+        width: 30px;
+        min-width: 30px;
+        max-width: 30px;
+      }
+
+      th:nth-child(2), td:nth-child(2) {
+        position: sticky;
+        left: 30px;
+        z-index: 2;
+        background-color: #fff;
+        width: 100px;
+        min-width: 90px;
+        max-width: 120px;
+      }
+
+      .name-col {
+        font-weight: bold;
+      }
+
+      .controls {
+        margin-top: 20px;
+      }
+
+      table tbody tr:nth-child(even) td {
+        background-color: #b9e5f8e0;
+      }
+
+      td.no-stripe,
+      th.no-stripe {
+        background-color: transparent !important;
+        border: none;
+      }
+
+      .note-table td:last-child,
+      .note-table th:last-child {
+        width: 200px;
+        text-align: left;
+      }
+    </style>
 </head>
 <body>
   <script>
-    const password = "na4575";
-    const input = prompt("管理者パスワードを入力してください：");
-    if (input !== password) {
-      alert("パスワードが正しくありません。");
-      window.location.href = "index.html";
+    const PASSWORD = "na4575";
+    const TOKEN_KEY = "adminAuthToken";
+    const EXPIRES_MS = 30 * 60 * 1000;
+
+    const token = localStorage.getItem(TOKEN_KEY);
+    const now = Date.now();
+
+    if (!token || now > Number(token)) {
+      const input = prompt("管理者パスワードを入力してください：");
+      if (input !== PASSWORD) {
+        alert("パスワードが正しくありません。");
+        window.location.href = "index.html";
+      } else {
+        localStorage.setItem(TOKEN_KEY, now + EXPIRES_MS);
+      }
     }
   </script>
 
@@ -96,7 +131,9 @@
     <button id="deleteAllBtn">すべての回答を削除</button>
   </div>
 
-  <div id="tableContainer" class="table-wrapper"></div>
+  <div class="table-wrapper">
+    <div class="scroll-container" id="tableContainer"></div>
+  </div>
 
   <!-- Firebase -->
   <script type="module">
@@ -139,22 +176,37 @@
     function splitWeeks(dates) {
       const weeks = [];
       let week = [];
-      dates.forEach(date => {
-        if (week.length === 0 && date.dow !== 0) {
-          for (let i = 0; i < date.dow; i++) week.push(null);
+
+      dates.forEach((date, index) => {
+        const dayOfWeek = date.dow;
+
+        // 最初の週の処理（曜日ずれ補正）
+        if (weeks.length === 0 && week.length === 0) {
+          for (let i = 0; i < dayOfWeek; i++) {
+            week.push(null); // 空白セル追加
+          }
         }
+
         week.push(date);
+
         if (week.length === 7) {
           weeks.push(week);
           week = [];
         }
       });
-      if (week.length > 0 && week.length < 7) {
-        while (week.length < 7) week.push(null);
+
+      // 最終週の不足分を補う
+      if (week.length > 0) {
+        while (week.length < 7) {
+          week.push(null);
+        }
         weeks.push(week);
       }
+
       return weeks;
     }
+
+
 
     function formatTime(answer) {
       if (!answer || !answer.type) return "";
@@ -170,6 +222,7 @@
     function renderTableFromData(data, range) {
       const container = document.getElementById("tableContainer");
       container.innerHTML = "";
+
       if (!range) {
         container.innerHTML = "<p>期間が設定されていません。</p>";
         return;
@@ -180,6 +233,10 @@
 
       const allDates = getDatesInRange(range.start, range.end);
       const weeks = splitWeeks(allDates);
+
+      // ← 表全体をまとめるスクロールラッパー
+      const scrollWrapper = document.createElement("div");
+      scrollWrapper.className = "scroll-container";
 
       weeks.forEach((weekDates, weekIndex) => {
         const table = document.createElement("table");
@@ -229,10 +286,11 @@
         });
 
         table.appendChild(tbody);
-        container.appendChild(table);
+        scrollWrapper.appendChild(table); // 1つのスクロール領域に全部追加
       });
 
-      // 備考
+      container.appendChild(scrollWrapper); // ← 最後にまとめて追加
+
       const notes = data.filter(e => e.note && e.note.trim());
       if (notes.length > 0) {
         const table = document.createElement("table");
@@ -268,6 +326,7 @@
         container.appendChild(table);
       }
     }
+
 
     function deleteSelected() {
       const checkboxes = document.querySelectorAll(".deleteCheckbox:checked");
@@ -335,13 +394,11 @@
       });
     }
 
-    // イベント登録
     document.getElementById("saveBtn").addEventListener("click", saveRange);
     document.getElementById("exportBtn").addEventListener("click", exportCSV);
     document.getElementById("deleteSelBtn").addEventListener("click", deleteSelected);
     document.getElementById("deleteAllBtn").addEventListener("click", deleteAll);
 
-    // 初期読み込み
     fetchData();
   </script>
 </body>
