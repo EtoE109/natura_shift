@@ -350,30 +350,41 @@
         if (!range) return alert("期間が未設定です。");
 
         const dates = getDatesInRange(range.start, range.end);
-        const header = ["名前", ...dates.map(d => `${d.day}(${d.youbi})`), "備考"];
-        const rows = [header];
+        const header = dates.map(d => `${d.day}(${d.youbi})`);
+        const valuesRow = new Array(dates.length).fill("");
 
         get(dbRef).then(snapshot => {
           const data = snapshot.val() || {};
-          Object.entries(data).forEach(([key, entry]) => {
-            const row = [entry.name];
-            dates.forEach(d => {
-              row.push(formatTime(entry.answers?.[d.iso]));
+
+          // 各日付ごとに人を集める
+          dates.forEach((date, idx) => {
+            const lines = [];
+
+            Object.values(data).forEach(entry => {
+              const answer = entry.answers?.[date.iso];
+              if (answer && answer.type) {
+                const formatted = formatTime(answer);
+                lines.push(`${entry.name}${formatted}`);
+              }
             });
-            row.push(entry.note || "");
-            rows.push(row);
+
+            valuesRow[idx] = lines.join(" / ");
           });
 
+          const rows = [header, valuesRow];
+
+          // CSVとして出力
           const csv = "\uFEFF" + rows.map(r => r.map(cell => `"${cell}"`).join(",")).join("\r\n");
           const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
-          a.download = "アンケート集計.csv";
+          a.download = "日付別シフト集計.csv";
           a.click();
         });
       });
     }
+
 
     function saveRange() {
       const start = document.getElementById("startDate").value;
