@@ -351,27 +351,34 @@
 
         const dates = getDatesInRange(range.start, range.end);
         const header = dates.map(d => `${d.day}(${d.youbi})`);
-        const valuesRow = new Array(dates.length).fill("");
+        header.push("備考"); // 備考列追加
 
         get(dbRef).then(snapshot => {
           const data = snapshot.val() || {};
 
-          // 各日付ごとに人を集める
-          dates.forEach((date, idx) => {
-            const lines = [];
+          // 各日付の列に入る値を準備
+          const columns = dates.map(() => []);
 
-            Object.values(data).forEach(entry => {
+          Object.values(data).forEach(entry => {
+            dates.forEach((date, idx) => {
               const answer = entry.answers?.[date.iso];
               if (answer && answer.type) {
                 const formatted = formatTime(answer);
-                lines.push(`${entry.name}${formatted}`);
+                columns[idx].push(`${entry.name}${formatted}`);
               }
             });
-
-            valuesRow[idx] = lines.join(" / ");
           });
 
-          const rows = [header, valuesRow];
+          // 行数を日付ごとの列の最大長さで計算（短い列は詰める）
+          const maxRows = Math.max(...columns.map(col => col.length));
+
+          // 回答のあるものだけで行単位に並べ替え
+          const rows = [header];
+          for (let i = 0; i < maxRows; i++) {
+            const row = columns.map(col => col[i] || ""); // 足りない分は空欄
+            row.push(""); // 備考の空白
+            rows.push(row);
+          }
 
           // CSVとして出力
           const csv = "\uFEFF" + rows.map(r => r.map(cell => `"${cell}"`).join(",")).join("\r\n");
@@ -384,8 +391,7 @@
         });
       });
     }
-
-
+    
     function saveRange() {
       const start = document.getElementById("startDate").value;
       const end = document.getElementById("endDate").value;
