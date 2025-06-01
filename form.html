@@ -33,9 +33,11 @@
 <body>
   <h1>南口シフト</h1>
 
+  <div>
   <label>名前：</label>
   <input type="text" id="username">
-  <p><font size="3">※下の名前を入力してください。</font></p><br><br>
+  <p><font size="3">※下の名前を入力してください。</font></p>
+  </div><br><br>
 
   <table id="calendar">
     <thead>
@@ -69,6 +71,12 @@
   <label>備考：</label><br>
   <textarea id="note"></textarea><br><br>
 
+  <label>メールアドレス：
+    <input type="email" id="mail" placeholder="info@sample.com">
+    <button onclick="SendMail()">メールに送信</button>
+  </label>
+
+  <br><br>
   <button onclick="submitForm()">送信</button>
 
   <script type="module">
@@ -216,17 +224,33 @@
       let start = null;
       if (type === "Lunch") {
         const selected = document.getElementById("startHour").value;
-        start = selected === "10" ? "10:00" : "11:30";
+        start = selected === "10" ? "10" : "11:30";
       }
       if (type === "Dinner") {
         const sH = document.getElementById("startHour").value;
         const sM = document.getElementById("startMin").value;
-        start = `${sH}:${sM.padStart(2, "0")}`;
+        if (sM === "15" || sM ==="45"){
+          start = `${sH}:${sM}`;
+        }else if (sM === "30"){
+          start = `${sH}.5`;
+        }else{
+          start = `${sH}`;
+        }
       }
       let end = "";
       const eH = document.getElementById("endHour").value;
       const eM = document.getElementById("endMin").value;
-      if (eH && eM) end = `${eH}:${eM.padStart(2, "0")}`;
+      if (eM === "--" || eM === "0" || eM === "") {
+        // 選択なし or 0 の場合は、時だけ
+        end = eH;
+      } else if (eM === "30") {
+        // 30の場合は 例: 18.5
+        end = `${eH}.5`;
+      } else if (eM === "15" || eM === "45") {
+        // 15または45は 例: 18:15、18:45
+        end = `${eH}:${eM}`;
+      }
+
       answers[currentDate] = { type, start, end };
       updateCellDisplay(currentDate);
       closeSelector();
@@ -277,6 +301,44 @@
       }).catch(err => alert("送信エラー：" + err.message));
     }
 
+
+    function SendMail(){
+      const address = document.getElementById("mail").value.trim();
+      const name = document.getElementById("username").value.trim();
+      const note = document.getElementById("note").value.trim();
+      get(configRef).then(snapshot => {
+      const range = snapshot.val();
+
+      // メール本文
+      let body = `${name}さん、いつもありがとうございます。\n\n\n[${range.start}~${range.end}のシフト]：\n\n\n`;
+
+      for (const date in answers) {
+        const { type, start, end } = answers[date];
+        body += `${date}: ${type} ${start}-${end}\n\n`;
+      }
+
+      body += `備考:${note}`;
+
+      // mailtoリンクを作成
+      const subject = `南口シフト`;
+      const mailtoLink = `mailto:${address}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+      // メールリンクを開く
+      window.location.href = mailtoLink;
+      }).catch(err => {
+        alert("メール送信失敗：" + err.message);
+      });
+
+    }
+
+    get(ref(db, "config/acception")).then(snap => {
+      if (snap.val() === false) {
+        document.body.innerHTML = "<h2 style='color:red;'>⚠ 回答は締め切られています。</h2>";
+      } else {
+        // 通常のUI描画処理
+      }
+    });
+    
     // 起動時に期間を取得 → カレンダー生成
     get(configRef).then(snapshot => {
       const range = snapshot.val();
@@ -292,6 +354,7 @@
     window.clearAnswer = clearAnswer;
     window.closeSelector = closeSelector;
     window.submitForm = submitForm;
+    window.SendMail = SendMail;
 
   </script>
 </body>

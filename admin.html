@@ -123,12 +123,14 @@
     <button id="saveBtn">期間を保存</button>
     <p id="rangeSaved" style="color: green;"></p>
   </div>
-
+  
   <div class="controls">
     <button id="exportBtn">Excelダウンロード</button>
     <button id="deleteSelBtn">選択した回答を削除</button>
     <button id="deleteAllBtn">すべての回答を削除</button>
   </div>
+
+  <br><button id="toggleAcceptBtn" style="padding: 10px 20px; font-weight: bold;"></button>
 
   <div class="table-wrapper">
     <div class="scroll-container" id="tableContainer"></div>
@@ -155,6 +157,7 @@
     const db = getDatabase(app);
     const dbRef = ref(db, "responses");
     const configRef = ref(db, "config/period");
+    const configAccept=ref(db, "config/acception")
     const weekdays = ["月", "火", "水", "木", "金", "土", "日"];
 
     function getDatesInRange(start, end) {
@@ -211,10 +214,10 @@
       if (!answer || !answer.type) return "";
       const { type, start, end } = answer;
       if (type === "Lunch") {
-        return start?.startsWith("10") ? `Lunch10~${end || ""}` : `Lunch~${end || ""}`;
+        return start?.startsWith("10") ? `Lunch10-${end || ""}` : `Lunch-${end || ""}`;
       }
-      if (type === "Dinner") return `${start || ""}~${end || ""}`;
-      if (type === "Free") return `Free~${end || ""}`;
+      if (type === "Dinner") return `${start || ""}-${end || ""}`;
+      if (type === "Free") return `Free-${end || ""}`;
       return "";
     }
 
@@ -412,12 +415,41 @@
       });
     }
 
+    function updateAcceptButton(state) {
+      const btn = document.getElementById("toggleAcceptBtn");
+      if (state) {
+        btn.textContent = "✓ 回答受付中";
+        btn.style.backgroundColor = "#28a745"; // 緑
+        btn.style.color = "#fff";
+      } else {
+        btn.textContent = "回答停止中";
+        btn.style.backgroundColor = "#dc3545"; // 赤
+        btn.style.color = "#fff";
+      }
+    }
+
+    function toggleAcception() {
+      get(configAccept).then(snap => {
+        const current = snap.val() ?? true; // デフォルトtrue
+        const next = !current;
+        return set(configAccept, next).then(() => updateAcceptButton(next));
+      });
+    }
+
+    // 初期表示設定
+    get(configAccept).then(snap => {
+      const state = snap.val() ?? true;
+      updateAcceptButton(state);
+    });
+
     document.getElementById("saveBtn").addEventListener("click", saveRange);
     document.getElementById("exportBtn").addEventListener("click", exportCSV);
     document.getElementById("deleteSelBtn").addEventListener("click", deleteSelected);
     document.getElementById("deleteAllBtn").addEventListener("click", deleteAll);
+    document.getElementById("toggleAcceptBtn").addEventListener("click", toggleAcception);
 
     fetchData();
   </script>
 </body>
 </html>
+
