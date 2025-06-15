@@ -31,12 +31,14 @@
         font-size: small;
       }
 
+
       body { 
         background-color: #fafae5;
         color: #444;
         font-family: 'Noto Sans JP', sans-serif;
         text-align: center; 
-        margin: 40px;
+        margin: 0;
+        padding: 0;
         margin-top: 150px; 
         overflow-x: hidden;
       }
@@ -48,22 +50,13 @@
       }
       
       #month {
-        font-size: 20px;
-        font-weight: 250;
+        width: 100%;
+        max-width: 560px;
+        padding: 0 10px;
+        box-sizing: border-box;
+        margin: 20px auto 10px auto;
         text-align: left;
-        width: fit-content;
-        margin: 20px auto 10px auto; /* 上と下に余白、中央寄せベース */
-      }
-
-      @media (min-width: 200px) {
-        #month {
-          font-size: 20px;
-          font-weight: 250;
-          width: 560px; /* カレンダーの幅と合わせる */
-          margin-left: auto;
-          margin-right: auto;
-          text-align: left;
-        }
+        font-size: 20px;
       }
 
       table {
