@@ -41,22 +41,23 @@
       }
 
       #namebox{
-        font-size: 30px;
+        font-size: 20px;
         font-weight: 900;
         color: #cfa34bbd;
       }
       
       #month {
-        font-size: 30px;
-        font-weight: 900;
+        font-size: 20px;
+        font-weight: 250;
         text-align: left;
         width: fit-content;
         margin: 20px auto 10px auto; /* 上と下に余白、中央寄せベース */
       }
 
-      @media (min-width: 400px) {
+      @media (min-width: 200px) {
         #month {
-          font-size: 30px;
+          font-size: 20px;
+          font-weight: 250;
           width: 560px; /* カレンダーの幅と合わせる */
           margin-left: auto;
           margin-right: auto;
@@ -64,7 +65,10 @@
         }
       }
 
-      table { margin: auto; border-collapse: collapse; }
+      table { 
+        margin: auto;
+        border-collapse: collapse; 
+      }
       #calendarBody{
         background-color: #ffffff;
       }
