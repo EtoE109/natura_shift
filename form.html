@@ -2,86 +2,116 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>南口シフト</title>
+  <title>南口シフト-ログイン</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: sans-serif; text-align: center; margin: 40px; }
-    table { margin: auto; border-collapse: collapse; }
-    th, td {
-      border: 1px solid #ccc;
-      width: 80px;
-      height: 60px;
-      vertical-align: top;
+    body {
+      background-color: #fafae5;
+      font-family: 'Noto Sans JP', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .container {
+      background-color: #fff;
+      padding: 40px 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+      width: 90%;
+      max-width: 360px; 
+      text-align: center;
+      border: 5px solid #f2f2f2;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 400;
+      margin-top: 10px;
+      margin-bottom: 5px;
+      color: #444;
+    }
+
+    #input-area {
+      margin-top: 80px;
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+    }
+
+    .note {
+      color: #444;
+      text-align: left;
+      margin-top: 5px;
+      margin-left: 10px;
+      margin-bottom: 25px;
+      font-size: small;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 15px;
+      font-size: 16px;
+      border: 2px solid #444;
+      border-radius: 20px;
+      outline: none;
+      box-sizing: border-box;
+      transition: border-color 0.2s ease-out;
+    }
+
+    input[type="text"]:focus {
+      border: 2px solid #6ffa2fbd;
+    }
+
+    button {
+      background-color: #444;
+      color: #fff;
+      border: none;
+      padding: 12px 20px;
+      font-size: 16px;
+      border-radius: 30px;
       cursor: pointer;
-      position: relative;
+      width: 60%;
+      transition: background-color 0.3s, color 0.5s;
     }
-    td:hover { background-color: #f0f0f0; }
-    .selected { background-color: #a0e0a0 !important; }
-    .active { outline: 3px solid #0077cc; }
-    .time-label {
-      position: absolute;
-      bottom: 3px;
-      right: 3px;
-      font-size: 0.75em;
-      color: #333;
+
+    button:hover {
+      background-color: #eee4e4;
+      color: #444;
     }
-    #timeSelector { display: none; margin-top: 20px; }
-    select { padding: 5px; margin: 5px; }
-    button { padding: 8px 16px; margin: 5px; }
-    textarea { width: 60%; height: 80px; margin-top: 20px; }
+
+    button:active {
+      transform: translateY(3px);
+    }
+
   </style>
 </head>
 <body>
-  <h1>南口シフト</h1>
-
-  <div>
-  <label>名前：</label>
-  <input type="text" id="username">
-  <p><font size="3">※下の名前を入力してください。</font></p>
-  </div><br><br>
-
-  <table id="calendar">
-    <thead>
-      <tr>
-        <th>日</th><th>月</th><th>火</th><th>水</th><th>木</th><th>金</th><th>土</th>
-      </tr>
-    </thead>
-    <tbody id="calendarBody"></tbody>
-  </table>
-
-  <div id="timeSelector">
-    <div>
-      <label><input type="radio" name="type" value="Lunch">Lunch</label>
-      <label><input type="radio" name="type" value="Dinner">Dinner</label>
-      <label><input type="radio" name="type" value="Free">Free</label>
+  <div class="container">
+    <h1>南口シフト</h1>
+    <hr width="60%", color="#d2b48c">
+    
+  <div id="input-area">
+    <div class="input-group">
+      <input type="text" id="username" placeholder="名前">
+      <p class="note">※下の名前を入力してください。</p>
     </div>
-    <div id="startTimeArea">
-      <label>[出勤]</label>
-      <select id="startHour"></select><span id="startColon">：</span><select id="startMin"></select>
+
+    <div class="input-group">
+      <input type="text" id="kintai" placeholder="勤怠番号">
+      <p class="note">※半角数字</p>
     </div>
-    <div id="endTimeArea">
-      <label>[退勤]</label>
-      <select id="endHour"></select>：<select id="endMin"></select>
-    </div>
-    <button onclick="saveAnswer()">決定</button>
-    <button onclick="clearAnswer()">取り消し</button>
-    <button onclick="closeSelector()">戻る</button>
   </div>
 
-  <br><br>
-  <label>備考：</label><br>
-  <textarea id="note"></textarea><br><br>
-
-  <label>メールアドレス：
-    <input type="email" id="mail" placeholder="info@sample.com">
-    <button onclick="SendMail()">メールに送信</button>
-  </label>
-
-  <br><br>
-  <button onclick="submitForm()">送信</button>
+    <button onclick="handleLogin()">ログイン</button>
+  </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-    import { getDatabase, ref, push, get } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.0/firebase-app.js";
+    import { getFirestore, doc, setDoc, collection, addDoc, getDocs, getDoc, updateDoc} from "https://www.gstatic.com/firebasejs/11.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDToeM2cPECKb22wElwSkCDsOMiEv_QU10",
@@ -94,267 +124,82 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-    const configRef = ref(db, "config/period");
-    const responsesRef = ref(db, "responses");
+    const db = getFirestore(app);
 
-    let currentDate = "";
-    let activeCell = null;
-    let answers = {};
+    //数字入力制限＆修正
+    const input = document.getElementById("kintai");
+    let isComposing = false;
 
-    const timeOptions = {
-      Lunch: {
-        start: [{h: 10, m: 0}, {h: 11, m: 30}],
-        endH: [14,15,16,17],
-        endM: [0,15,30,45]
-      },
-      Dinner: {
-        startH: [15,16,17,18,19],
-        startM: [0,15,30,45],
-        endH: [20,21,22,23],
-        endM: [0,15,30,45]
-      },
-      Free: {
-        endH: [20,21,22,23],
-        endM: [0,15,30,45]
-      }
-    };
-
-    function generateCalendar(startStr, endStr) {
-      const start = new Date(startStr);
-      const end = new Date(endStr);
-      const tbody = document.getElementById("calendarBody");
-      tbody.innerHTML = "";
-
-      let current = new Date(start);
-      let row = document.createElement("tr");
-      for (let i = 0; i < current.getDay(); i++) row.appendChild(document.createElement("td"));
-
-      while (current <= end) {
-        const dateStr = current.toISOString().split("T")[0];
-        const td = document.createElement("td");
-        td.dataset.date = dateStr;
-        td.textContent = current.getDate();
-        td.addEventListener("click", () => openSelector(td));
-        row.appendChild(td);
-        if (current.getDay() === 6) {
-          tbody.appendChild(row);
-          row = document.createElement("tr");
-        }
-        current.setDate(current.getDate() + 1);
-      }
-      if (row.children.length > 0) {
-        while (row.children.length < 7) row.appendChild(document.createElement("td"));
-        tbody.appendChild(row);
-      }
-    }
-
-    function openSelector(td) {
-      currentDate = td.dataset.date;
-      if (activeCell) activeCell.classList.remove("active");
-      td.classList.add("active");
-      activeCell = td;
-      document.getElementById("timeSelector").style.display = "block";
-    }
-
-    function updateSelectors(type) {
-      const startHour = document.getElementById("startHour");
-      const startMin = document.getElementById("startMin");
-      const endHour = document.getElementById("endHour");
-      const endMin = document.getElementById("endMin");
-      startHour.innerHTML = "";
-      startMin.innerHTML = "";
-      endHour.innerHTML = "<option value=''>--</option>";
-      endMin.innerHTML = "<option value=''>--</option>";
-
-      const sArea = document.getElementById("startTimeArea");
-      const eArea = document.getElementById("endTimeArea");
-
-      if (type === "Lunch") {
-        sArea.style.display = "inline";
-        eArea.style.display = "inline";
-        startHour.innerHTML = `
-          <option value="10">Lunch10（10:00）</option>
-          <option value="11">Lunch（11:30）</option>
-        `;
-        document.getElementById("startMin").style.display = "none";
-        document.getElementById("startColon").style.display = "none";
-        timeOptions.Lunch.endH.forEach(h => {
-          endHour.innerHTML += `<option value="${h}">${h}</option>`;
-        });
-        timeOptions.Lunch.endM.forEach(m => {
-          endMin.innerHTML += `<option value="${m}">${m.toString().padStart(2, "0")}</option>`;
-        });
-      } else if (type === "Dinner") {
-        sArea.style.display = "inline";
-        eArea.style.display = "inline";
-        document.getElementById("startMin").style.display = "inline";
-        document.getElementById("startColon").style.display = "inline";
-        timeOptions.Dinner.startH.forEach(h => {
-          startHour.innerHTML += `<option value="${h}">${h}</option>`;
-        });
-        timeOptions.Dinner.startM.forEach(m => {
-          startMin.innerHTML += `<option value="${m}">${m.toString().padStart(2, "0")}</option>`;
-        });
-        timeOptions.Dinner.endH.forEach(h => {
-          endHour.innerHTML += `<option value="${h}">${h}</option>`;
-        });
-        timeOptions.Dinner.endM.forEach(m => {
-          endMin.innerHTML += `<option value="${m}">${m.toString().padStart(2, "0")}</option>`;
-        });
-      } else if (type === "Free") {
-        sArea.style.display = "none";
-        eArea.style.display = "inline";
-        timeOptions.Free.endH.forEach(h => {
-          endHour.innerHTML += `<option value="${h}">${h}</option>`;
-        });
-        timeOptions.Free.endM.forEach(m => {
-          endMin.innerHTML += `<option value="${m}">${m.toString().padStart(2, "0")}</option>`;
-        });
-      }
-    }
-
-    document.querySelectorAll("input[name='type']").forEach(radio => {
-      radio.addEventListener("change", e => updateSelectors(e.target.value));
+    input.addEventListener("compositionstart", () => {
+      isComposing = true;
     });
 
-    function saveAnswer() {
-      const type = document.querySelector("input[name='type']:checked")?.value;
-      if (!type) return alert("タイプを選択してください。");
-      let start = null;
-      if (type === "Lunch") {
-        const selected = document.getElementById("startHour").value;
-        start = selected === "10" ? "10" : "11:30";
-      }
-      if (type === "Dinner") {
-        const sH = document.getElementById("startHour").value;
-        const sM = document.getElementById("startMin").value;
-        if (sM === "15" || sM ==="45"){
-          start = `${sH}:${sM}`;
-        }else if (sM === "30"){
-          start = `${sH}.5`;
-        }else{
-          start = `${sH}`;
-        }
-      }
-      let end = "";
-      const eH = document.getElementById("endHour").value;
-      const eM = document.getElementById("endMin").value;
-      if (eM === "--" || eM === "0" || eM === "") {
-        // 選択なし or 0 の場合は、時だけ
-        end = eH;
-      } else if (eM === "30") {
-        // 30の場合は 例: 18.5
-        end = `${eH}.5`;
-      } else if (eM === "15" || eM === "45") {
-        // 15または45は 例: 18:15、18:45
-        end = `${eH}:${eM}`;
-      }
-
-      answers[currentDate] = { type, start, end };
-      updateCellDisplay(currentDate);
-      closeSelector();
-    }
-
-    function updateCellDisplay(dateStr) {
-      const cell = document.querySelector(`td[data-date='${dateStr}']`);
-      cell.classList.add("selected");
-      let label = cell.querySelector(".time-label");
-      if (label) label.remove();
-      const info = answers[dateStr];
-      if (!info) return;
-      let text = "";
-      if (info.type === "Lunch") {
-        text = info.start?.startsWith("10") ? `Lunch${info.start}~${info.end || ""}` : `Lunch~${info.end || ""}`;
-      } else if (info.type === "Dinner") {
-        text = `${info.start || ""}~${info.end || ""}`;
-      } else if (info.type === "Free") {
-        text = `Free~${info.end || ""}`;
-      }
-      label = document.createElement("div");
-      label.className = "time-label";
-      label.textContent = text;
-      cell.appendChild(label);
-    }
-
-    function clearAnswer() {
-      delete answers[currentDate];
-      const cell = document.querySelector(`td[data-date='${currentDate}']`);
-      cell.classList.remove("selected");
-      cell.querySelector(".time-label")?.remove();
-      closeSelector();
-    }
-
-    function closeSelector() {
-      document.getElementById("timeSelector").style.display = "none";
-      if (activeCell) activeCell.classList.remove("active");
-    }
-
-    function submitForm() {
-      const name = document.getElementById("username").value.trim();
-      const note = document.getElementById("note").value.trim();
-      if (!name) return alert("名前を入力してください。");
-      const newData = { name, note, answers };
-      push(responsesRef, newData).then(() => {
-        alert("回答が送信されました");
-        location.reload();
-      }).catch(err => alert("送信エラー：" + err.message));
-    }
-
-
-    function SendMail(){
-      const address = document.getElementById("mail").value.trim();
-      const name = document.getElementById("username").value.trim();
-      const note = document.getElementById("note").value.trim();
-      get(configRef).then(snapshot => {
-      const range = snapshot.val();
-
-      // メール本文
-      let body = `${name}さん、いつもありがとうございます。\n\n\n[${range.start}~${range.end}のシフト]：\n\n\n`;
-
-      for (const date in answers) {
-        const { type, start, end } = answers[date];
-        body += `${date}: ${type} ${start}-${end}\n\n`;
-      }
-
-      body += `備考:${note}`;
-
-      // mailtoリンクを作成
-      const subject = `南口シフト`;
-      const mailtoLink = `mailto:${address}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
-      // メールリンクを開く
-      window.location.href = mailtoLink;
-      }).catch(err => {
-        alert("メール送信失敗：" + err.message);
-      });
-
-    }
-
-    get(ref(db, "config/acception")).then(snap => {
-      if (snap.val() === false) {
-        document.body.innerHTML = "<h2 style='color:red;'>⚠ 回答は締め切られています。</h2>";
-      } else {
-        // 通常のUI描画処理
-      }
+    input.addEventListener("compositionend", () => {
+      isComposing = false;
+      sanitize(); // 入力確定時にだけ変換
     });
-    
-    // 起動時に期間を取得 → カレンダー生成
-    get(configRef).then(snapshot => {
-      const range = snapshot.val();
-      if (!range) {
-        document.body.innerHTML = "<p>提出期間がまだ設定されていません。管理者に確認してください。</p>";
+
+    input.addEventListener("input", () => {
+      if (!isComposing) sanitize();
+    });
+
+    function sanitize() {
+      let value = input.value.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+      if (/[^0-9]/.test(value)) {
+        alert("数字で入力してください");
+        value = value.replace(/[^0-9]/g, "");
+      }
+      input.value = value;
+    }
+
+    async function handleLogin() {
+      const loginname = document.getElementById("username").value.trim();
+      const logintoken = document.getElementById("kintai").value.trim();
+      if (!loginname) {
+        alert("名前を入力してください");
         return;
       }
-      generateCalendar(range.start, range.end);
-    });
+      if (!logintoken) {
+        alert("勤怠番号を入力してください");
+        return;
+      }
 
-    // 関数をグローバル登録してボタンから呼べるようにする
-    window.saveAnswer = saveAnswer;
-    window.clearAnswer = clearAnswer;
-    window.closeSelector = closeSelector;
-    window.submitForm = submitForm;
-    window.SendMail = SendMail;
+      const adid = "na4575";
+
+      const userRef = doc(db, "users", logintoken);
+      const adminRef = collection(db, "admin", adid, "users");
+      const data = {
+        name: loginname,
+        token: logintoken,
+      };
+
+      try{
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) {
+          await setDoc(userRef, data);
+          await setDoc(doc(adminRef, logintoken), data);
+          console.log("successful registration");
+        } else {
+          const userData = userSnap.data();
+          if (userData.name !== loginname) {
+            alert("名前と勤怠番号が一致しません。");
+            return;
+          }
+          console.log("successful authentification");
+        }
+
+        // 認証成功後に保存・遷移
+        localStorage.setItem("name", loginname);
+        localStorage.setItem("token", logintoken);
+        location.href = "submit.html";
+      }catch(e){
+        console.error("ログイン中にエラーが発生しました:", e);
+        alert("ログインエラー。もう一度お試しください。");
+      }
+    }
+
+    window.handleLogin = handleLogin;
 
   </script>
 </body>

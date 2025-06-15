@@ -4,21 +4,73 @@
   <meta charset="UTF-8">
   <title>南口シフトホーム</title>
   <style>
-    body {
-      font-family: sans-serif;
-      text-align: center;
-      margin-top: 100px;
+    header {
+      font-family: 'Ubuntu Mono', monospace;
+      display: flex;
+      justify-content: space-between; /* 左右に分ける */
+      align-items: flex-end;          /* ↓ aタグを下端に合わせる */
+      position: fixed;
+      width: 100%;
+      height: 60px;
+      left: 0;
+      top: 0;
+      margin: 0;
+      padding: 20px;
+      background-color: #d2b48c;
+      color: #fff;
+      z-index: 1001;
+      box-shadow: 0 3px 6px rgba(56, 66, 66, 0.408);
     }
+
+    h1{
+      margin-bottom: 10px;
+    }
+    body { 
+      background-color: #fafae5;
+      color: #444;
+      font-family: 'Noto Sans JP', sans-serif;
+      text-align: center; 
+      margin: 40px;
+      margin-top: 150px; 
+    }
+
     a {
       display: block;
       margin: 20px;
       font-size: 1.5em;
     }
+
+    button {
+      background-color: #444;
+      color: #fff;
+      border: none;
+      margin: 50px;
+      padding: 12px 20px;
+      font-size: 30px;
+      border-radius: 30px;
+      cursor: pointer;
+      width: 600px;
+      height: 100px;
+      transition: background-color 0.3s, color 0.5s;
+    }
+
+    button:hover {
+      background-color: #eee4e4;
+      color: #444;
+    }
+
+    button:active {
+      transform: translateY(3px);
+    }
   </style>
 </head>
+<header>
+    <h1>南口シフト</h1>
+</header>
 <body>
-  <h1>南口シフト</h1>
-  <a href="form.html">▶ シフト提出</a>
-  <a href="admin.html">管理者画面</a>
+
+  <button onclick="location.href=`form.html`">シフト提出</button><br>
+  <button onclick="location.href=`admin.html`">管理者画面</button>
+
 </body>
 </html>

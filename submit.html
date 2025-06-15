@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>南口シフト-提出</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      header {
+        font-family: 'Ubuntu Mono', monospace;
+        display: flex;
+        justify-content: space-between; /* 左右に分ける */
+        align-items: flex-end;          /* ↓ aタグを下端に合わせる */
+        position: fixed;
+        width: 100%;
+        height: 60px;
+        left: 0;
+        top: 0;
+        margin: 0;
+        padding: 20px;
+        background-color: #d2b48c;
+        color: #fff;
+        z-index: 1001;
+        box-shadow: 0 3px 6px rgba(56, 66, 66, 0.408);
+      }
+
+      h1{
+        margin-bottom: 10px;
+      }
+      a {
+        margin-right: 50px;
+        font-size: small;
+      }
+
+      body { 
+        background-color: #fafae5;
+        color: #444;
+        font-family: 'Noto Sans JP', sans-serif;
+        text-align: center; 
+        margin: 40px;
+        margin-top: 150px; 
+      }
+
+      #namebox{
+        font-size: 30px;
+        font-weight: 900;
+        color: #cfa34bbd;
+      }
+      
+      #month {
+        font-size: 30px;
+        font-weight: 900;
+        text-align: left;
+        width: fit-content;
+        margin: 20px auto 10px auto; /* 上と下に余白、中央寄せベース */
+      }
+
+      @media (min-width: 400px) {
+        #month {
+          font-size: 30px;
+          width: 560px; /* カレンダーの幅と合わせる */
+          margin-left: auto;
+          margin-right: auto;
+          text-align: left;
+        }
+      }
+
+      table { margin: auto; border-collapse: collapse; }
+      #calendarBody{
+        background-color: #ffffff;
+      }
+      thead{
+        background-color: #e4e0ca;
+        width: 80px;
+        height: 40px;
+        border: 1px solid #ccc;
+        vertical-align: top;
+        position: relative;
+      }
+      td {
+        border: 1px solid #ccc;
+        width: 80px;
+        height: 60px;
+        vertical-align: top;
+        cursor: pointer;
+        position: relative;
+      }
+      td:hover { background-color: #f0f0f0; }
+      .selected { background-color: #a0e0a0 !important; }
+      .active { outline: 3px solid #0077cc; }
+      .time-label {
+        position: absolute;
+        bottom: 3px;
+        right: 3px;
+        font-size: 0.75em;
+        color: #333;
+      }
+      #timeSelector { display: none; margin-top: 20px; }
+      select { padding: 5px; margin: 5px; }
+      
+      button {
+      background-color: #444;
+      color: #fff;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 30px;
+      cursor: pointer;
+      transition: background-color 0.3s, color 0.5s;
+      }
+
+      #sendbtn{
+        font-size: 20px;
+        width: 200px;
+      }
+
+      button:hover {
+        background-color: #eee4e4;
+        color: #444;
+      }
+
+      button:active {
+        transform: translateY(3px);
+      }
+
+      textarea { 
+        width: 85%; 
+        height: 80px; 
+        margin-top: 20px; 
+        border: 2px solid #ccc;
+        border-radius: 8px;
+      }
+
+      .closed-title {
+        color: red;
+      }
+      #mail{
+        width: 300px;
+        padding: 5px 15px;
+        font-size: 12px;
+        border: 2px solid #ccc;
+        border-radius: 8px;
+        outline: none;
+        box-sizing: border-box;
+      }
+    </style>
+</head>
+<body>
+  <header>
+    <h1>南口シフト</h1><a id="back" href = './form.html'>ログイン画面に戻る</a>
+  </header>
+    <p id="namebox"></p>
+
+    <div id="alloptions" style="display: block;">
+      <p id="month"></p>
+        <table id="calendar">
+        <thead>
+            <tr>
+            <th>日</th><th>月</th><th>火</th><th>水</th><th>木</th><th>金</th><th>土</th>
+            </tr>
+        </thead>
+        <tbody id="calendarBody"></tbody>
+        </table>
+
+        <div id="timeSelector">
+          <div>
+              <label><input type="radio" name="type" value="Lunch">Lunch</label>
+              <label><input type="radio" name="type" value="Dinner">Dinner</label>
+              <label><input type="radio" name="type" value="Free">Free</label>
+          </div>
+          <div id="startTimeArea">
+              <label>[出勤]</label>
+              <select id="startHour"></select><span id="startColon">：</span><select id="startMin"></select>
+          </div>
+          <div id="endTimeArea">
+              <label>[退勤]</label>
+              <select id="endHour"></select>：<select id="endMin"></select>
+          </div>
+          <button onclick="saveAnswer()">決定</button>
+          <button onclick="clearAnswer()">取り消し</button>
+          <button onclick="closeSelector()">戻る</button>
+        </div>
+
+        <br><br>
+        <textarea id="note" placeholder="備考"></textarea>
+        <br><br>
+
+        <input type="email" id="mail" placeholder="メールアドレス">
+        <button onclick="SendMail()">メールに送信</button>
+
+
+        <br><br>
+        <button id="sendbtn" onclick="submitForm()">送信</button>
+    </div>
+    <h2 class="closed-title"></h2>
+
+<script type="module">
+    /////Firebase////////
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.0/firebase-app.js";
+    import { getFirestore, doc, setDoc, collection, addDoc, getDocs, getDoc, updateDoc} from "https://www.gstatic.com/firebasejs/11.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDToeM2cPECKb22wElwSkCDsOMiEv_QU10",
+      authDomain: "natura-shift.firebaseapp.com",
+      databaseURL: "https://natura-shift-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "natura-shift",
+      storageBucket: "natura-shift.firebasestorage.app",
+      messagingSenderId: "485985022346",
+      appId: "1:485985022346:web:29b59ab107cee81357d873"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    //////////////
+
+    //get name and token from local storage
+    const name = localStorage.getItem("name");
+    const token = localStorage.getItem("token");
+    const adid = "na4575";
+
+    console.log("name：", name);
+    console.log("token：", token);
+
+    //display the name
+    let nametext = document.getElementById("namebox");
+    nametext.textContent = `${name} 【${token}】`
+
+    //Firestore parameters
+    const cfgDoc = doc(db, "config", "cfgid");
+    const userDoc = doc(db, "users", token);
+    const adminDoc = doc(db, "admin", adid);
+    const aduserDoc = doc(adminDoc, "users", token);
+    const cfgSnap = await getDoc(cfgDoc);
+
+    //inittially proccess
+    let pre_answers = {};
+    let currentDate = "";
+    let activeCell = null;
+    let answers = {};
+
+    const timeOptions = {
+      Lunch: {
+        start: [{h: 10, m: 0}, {h: 11, m: 30}],
+        endH: [14,15,16,17],
+        endM: [0,15,30,45]
+      },
+      Dinner: {
+        startH: [15,16,17,18,19],
+        startM: [0,15,30,45],
+        endH: [20,21,22,23],
+        endM: [0,15,30,45]
+      },
+      Free: {
+        endH: [20,21,22,23],
+        endM: [0,15,30,45]
+      }
+    };
+
+    const backBtn = document.getElementById("back");
+    backBtn.addEventListener("click", function(event){
+      event.preventDefault();
+      localStorage.removeItem("name");
+      localStorage.removeItem("token");
+      window.location.href = './form.html';
+    });
+
+    function CheckAccept() {  
+        if (cfgSnap.data()?.accept === false) {   
+            const all = document.getElementById("alloptions");
+            all.style.display = "none";     
+            const close = document.querySelector(".closed-title");
+            close.textContent= "⚠ 回答は締め切られています。";
+        } else {
+            // 通常のUI描画処理
+        }
+    }
+
+
+    async function initializeAnswers() {
+      const pre_ansQSS = await getDocs(collection(userDoc, "answers"));
+      const pre_userSnap = await getDoc(userDoc);
+      const pre_note = pre_userSnap.data()?.note ?? "";
+      document.getElementById("note").value = pre_note;
+      if (!pre_ansQSS.empty) {
+        pre_ansQSS.docs.forEach(doc => {
+          pre_answers[doc.id] = doc.data();
+        });
+
+        answers = { ...pre_answers };
+
+        Object.keys(answers).forEach(date => {
+          if(answers[date].type)updateCellDisplay(date);
+        });
+      }
+    }
+
+
+    function generateCalendar(startStr, endStr) {
+      const start = new Date(startStr);
+      const end = new Date(endStr);
+      const tbody = document.getElementById("calendarBody");
+      tbody.innerHTML = "";
+
+      let current = new Date(start);
+      let row = document.createElement("tr");
+      for (let i = 0; i < current.getDay(); i++) row.appendChild(document.createElement("td"));
+
+      while (current <= end) {
+        const dateStr = current.toISOString().split("T")[0];
+        const td = document.createElement("td");
+        td.dataset.date = dateStr;
+        td.textContent = current.getDate();
+        td.addEventListener("click", () => openSelector(td));
+        row.appendChild(td);
+        if (current.getDay() === 6) {
+          tbody.appendChild(row);
+          row = document.createElement("tr");
+        }
+        current.setDate(current.getDate() + 1);
+      }
+      if (row.children.length > 0) {
+        while (row.children.length < 7) row.appendChild(document.createElement("td"));
+        tbody.appendChild(row);
+      }
+      
+      const month = document.getElementById("month");
+      month.textContent = `${current.getMonth()+1}月`;
+    }
+
+    function GetPeriod() {
+        const data = cfgSnap.data();
+        const period = data?.period;
+
+        if (!period || !period.start || !period.end) {
+            const deletepart = document.getElementById("alloptions");
+            deletepart.innerHTML = "<p>提出期間がまだ設定されていません。管理者に確認してください。</p>";
+            return;
+        }
+
+        generateCalendar(period.start, period.end);
+        initializeAnswers();
+    }
+
+
+    function openSelector(td) {
+      currentDate = td.dataset.date;
+      if (activeCell) activeCell.classList.remove("active");
+      td.classList.add("active");
+      activeCell = td;
+      document.getElementById("timeSelector").style.display = "block";
+    }
+
+    function updateSelectors(type) {
+      const startHour = document.getElementById("startHour");
+      const startMin = document.getElementById("startMin");
+      const endHour = document.getElementById("endHour");
+      const endMin = document.getElementById("endMin");
+      startHour.innerHTML = "";
+      startMin.innerHTML = "";
+      endHour.innerHTML = "<option value=''>--</option>";
+      endMin.innerHTML = "<option value=''>--</option>";
+
+      const sArea = document.getElementById("startTimeArea");
+      const eArea = document.getElementById("endTimeArea");
+
+      if (type === "Lunch") {
+        sArea.style.display = "inline";
+        eArea.style.display = "inline";
+        startHour.innerHTML = `
+          <option value="10">Lunch10（10:00）</option>
+          <option value="11">Lunch（11:30）</option>
+        `;
+        document.getElementById("startMin").style.display = "none";
+        document.getElementById("startColon").style.display = "none";
+        timeOptions.Lunch.endH.forEach(h => {
+          endHour.innerHTML += `<option value="${h}">${h}</option>`;
+        });
+        timeOptions.Lunch.endM.forEach(m => {
+          endMin.innerHTML += `<option value="${m}">${m.toString().padStart(2, "0")}</option>`;
+        });
+      } else if (type === "Dinner") {
+        sArea.style.display = "inline";
+        eArea.style.display = "inline";
+        document.getElementById("startMin").style.display = "inline";
+        document.getElementById("startColon").style.display = "inline";
+        timeOptions.Dinner.startH.forEach(h => {
+          startHour.innerHTML += `<option value="${h}">${h}</option>`;
+        });
+        timeOptions.Dinner.startM.forEach(m => {
+          startMin.innerHTML += `<option value="${m}">${m.toString().padStart(2, "0")}</option>`;
+        });
+        timeOptions.Dinner.endH.forEach(h => {
+          endHour.innerHTML += `<option value="${h}">${h}</option>`;
+        });
+        timeOptions.Dinner.endM.forEach(m => {
+          endMin.innerHTML += `<option value="${m}">${m.toString().padStart(2, "0")}</option>`;
+        });
+      } else if (type === "Free") {
+        sArea.style.display = "none";
+        eArea.style.display = "inline";
+        timeOptions.Free.endH.forEach(h => {
+          endHour.innerHTML += `<option value="${h}">${h}</option>`;
+        });
+        timeOptions.Free.endM.forEach(m => {
+          endMin.innerHTML += `<option value="${m}">${m.toString().padStart(2, "0")}</option>`;
+        });
+      }
+    }
+
+    document.querySelectorAll("input[name='type']").forEach(radio => {
+      radio.addEventListener("change", e => updateSelectors(e.target.value));
+    });
+
+    function closeSelector() {
+      document.getElementById("timeSelector").style.display = "none";
+      if (activeCell) activeCell.classList.remove("active");
+    }
+
+    function saveAnswer() {
+      const type = document.querySelector("input[name='type']:checked")?.value;
+      if (!type) return alert("タイプを選択してください。");
+      let start = "";
+      if (type === "Lunch") {
+        const selected = document.getElementById("startHour").value;
+        start = selected === "10" ? "10" : "11.5";
+      }
+      if (type === "Dinner") {
+        const sH = document.getElementById("startHour").value;
+        const sM = document.getElementById("startMin").value;
+        if (sM === "15" || sM ==="45"){
+          start = `${sH}:${sM}`;
+        }else if (sM === "30"){
+          start = `${sH}.5`;
+        }else{
+          start = `${sH}`;
+        }
+      }
+      let end = "";
+      const eH = document.getElementById("endHour").value;
+      const eM = document.getElementById("endMin").value;
+      if (eM === "--" || eM === "0" || eM === "") {
+        // 選択なし or 0 の場合は、時だけ
+        end = eH;
+      } else if (eM === "30") {
+        // 30の場合は 例: 18.5
+        end = `${eH}.5`;
+      } else if (eM === "15" || eM === "45") {
+        // 15または45は 例: 18:15、18:45
+        end = `${eH}:${eM}`;
+      }
+      answers[currentDate] = { type, start, end };
+      //日付順に並び替え
+      const sortedAnswers = Object.keys(answers)
+        .sort() 
+        .reduce((acc, date) => {
+          acc[date] = answers[date];
+          return acc;
+        }, {});
+      answers = sortedAnswers;
+
+      updateCellDisplay(currentDate);
+      closeSelector();
+    }
+
+    function updateCellDisplay(dateStr) {
+      const cell = document.querySelector(`td[data-date='${dateStr}']`);
+      cell.classList.add("selected");
+      let label = cell.querySelector(".time-label");
+      if (label) label.remove();
+      const info = answers[dateStr];
+      if (!info) return;
+      let text = "";
+      if (info.type === "Lunch") {
+        text = info.start?.startsWith("10") ? `Lunch${info.start}~${info.end || ""}` : `Lunch~${info.end || ""}`;
+      } else if (info.type === "Dinner") {
+        text = `${info.start || ""}~${info.end || ""}`;
+      } else if (info.type === "Free") {
+        text = `Free~${info.end || ""}`;
+      }
+      label = document.createElement("div");
+      label.className = "time-label";
+      label.textContent = text;
+      cell.appendChild(label);
+    }
+
+    function clearAnswer() {
+      delete answers[currentDate];
+      const cell = document.querySelector(`td[data-date='${currentDate}']`);
+      cell.classList.remove("selected");
+      cell.querySelector(".time-label")?.remove();
+      closeSelector();
+    }
+
+    function compareAnswer() {
+      const uniondates = [...new Set([...Object.keys(pre_answers), ...Object.keys(answers)])];
+
+      uniondates.forEach(date => {
+        const pre = pre_answers[date] ?? {};
+        const post = answers[date] ?? {};
+
+        // type / start / end のいずれかが違えば修正とみなす
+        const isChanged =
+          pre.type !== post.type ||
+          pre.start !== post.start ||
+          pre.end !== post.end;
+
+        if (isChanged) {
+          if (!answers[date]) answers[date] = {};
+          answers[date].rev = true;
+        }
+      });
+    }
+
+    function SendMail(){
+      const address = document.getElementById("mail").value.trim();
+      const note = document.getElementById("note").value.trim();
+     
+      try {
+      const cfgdata = cfgSnap.data();
+      const range = cfgdata?.period;
+
+      // メール本文
+      let body = `${name}さん、いつもありがとうございます。\n\n\n[${range.start}~${range.end}のシフト]：\n\n\n`;
+
+      for (const date in answers) {
+        const { type, start, end } = answers[date];
+        if (!type) continue;
+        body += `${date}: ${type} ${start}-${end}\n\n`;
+      }
+
+      body += `備考:${note}`;
+
+      // mailtoリンクを作成
+      const subject = `南口シフト`;
+      const mailtoLink = `mailto:${address}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+      // メールリンクを開く
+      window.location.href = mailtoLink;
+      }catch(err){
+        alert("メール送信失敗：" + err.message);
+      };
+    }
+
+    async function submitForm() {
+      const userSnap = await getDoc(userDoc);
+      let repeat = userSnap.data().repeat ?? undefined;
+      if (repeat === undefined) {
+        await updateDoc(userDoc,{repeat:0});
+        await updateDoc(aduserDoc,{repeat:0})
+      } else{
+        repeat+=1;
+        await updateDoc(userDoc,{repeat});
+        await updateDoc(aduserDoc,{repeat});
+        compareAnswer();
+      };
+      const note = document.getElementById("note").value.trim();
+      const dateData = Object.keys(answers).sort();
+      
+      try{
+        await updateDoc(userDoc,{note:note});
+        await updateDoc(aduserDoc, {note:note});
+        for (const date of dateData) {
+          await setDoc(doc(userDoc, "answers", date), answers[date]);
+        };
+        for (const date of dateData) {
+          await setDoc(doc(aduserDoc, "answers", date), answers[date]);
+        };
+        alert("回答が送信されました");
+        localStorage.removeItem("name");
+        localStorage.removeItem("token");
+        location.href = "form.html";
+      }catch(err){
+        alert("送信エラー：" + err.message)
+      };
+    }
+    
+    CheckAccept();
+    GetPeriod();
+    
+    // 関数をグローバル登録してボタンから呼べるようにする
+    window.saveAnswer = saveAnswer;
+    window.clearAnswer = clearAnswer;
+    window.closeSelector = closeSelector;
+    window.SendMail = SendMail;
+    window.submitForm = submitForm;
+</script>
+
+
+</body>
+</html>

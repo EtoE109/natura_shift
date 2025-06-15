@@ -5,10 +5,39 @@
   <title>南口シフト - 管理者画面</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-      body {
-        font-family: sans-serif;
+      header {
+        font-family: 'Ubuntu Mono', monospace;
+        display: flex;
+        justify-content: space-between; /* 左右に分ける */
+        align-items: flex-end;          /* ↓ aタグを下端に合わせる */
+        position: fixed;
+        width: 100%;
+        height: 60px;
+        left: 0;
+        top: 0;
+        margin: 0;
         padding: 20px;
-        text-align: center;
+        background-color: #d2b48c;
+        color: #fff;
+        z-index: 1001;
+        box-shadow: 0 3px 6px rgba(56, 66, 66, 0.408);
+      }
+
+      h1{
+        margin-bottom: 10px;
+      }
+      a {
+        margin-right: 50px;
+        font-size: small;
+      }
+
+      body { 
+        background-color: #fafae5;
+        color: #444;
+        font-family: 'Noto Sans JP', sans-serif;
+        text-align: center; 
+        margin: 40px;
+        margin-top: 150px; 
       }
 
       .table-wrapper {
@@ -41,6 +70,7 @@
 
       th, td {
         border: 1px solid #ccc;
+        background-color: #fff;
         padding: 6px;
         height: 40px;
         overflow: hidden;
@@ -86,62 +116,91 @@
         word-break: break-word;
       }
 
-      .scroll-container table tbody tr:nth-child(even) td {
-        background-color: #b9e5f8e0;
+      .revision-highlight {
+        background-color: #6ffa2fbd;
       }
 
-      .note-table tbody tr:nth-child(even) td {
-        background-color: #b9e5f8e0;
+      .scroll-container table tbody tr:nth-child(even) td {
+        background-color: #dbdad1e0;
       }
+
+      .scroll-container table tbody tr:nth-child(even) td.revision-highlight {
+        background-color: #6ffa2fbd;
+      }
+
+
+      .note-table tbody tr:nth-child(even) td {
+        background-color: #dbdad1e0;
+      }
+
+      button {
+      background-color: #444;
+      color: #fff;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background-color 0.3s, color 0.5s;
+      }
+
+      button.accepting{
+        background-color: #28a745;
+        padding: 10px 20px; 
+        font-size: large;
+        font-weight: bold;
+        height: 50px;
+      }
+
+      button.stopped{
+        background-color: #dc3545;
+        padding: 10px 20px; 
+        font-size: large;
+        font-weight: bold;
+        height: 50px;
+      }
+
+      button:hover {
+        background-color: #eee4e4;
+        color: #444;
+      }
+
+      button:active {
+        transform: translateY(3px);
+      }
+
     </style>
 </head>
 <body>
-  <script>
-    const PASSWORD = "na4575";
-    const TOKEN_KEY = "adminAuthToken";
-    const EXPIRES_MS = 30 * 60 * 1000;
+  <header>
+    <h1>南口シフト-管理者画面</h1><a id="back" href = './index.html'>前の画面に戻る</a>
+  </header>
+  <div id="main" style="display: none;">
 
-    const token = localStorage.getItem(TOKEN_KEY);
-    const now = Date.now();
+    <div>
+      <label>開始日: <input type="date" id="startDate"></label>
+      <label>終了日: <input type="date" id="endDate"></label>
+      <button id="saveBtn">期間を保存</button>
+      <p id="rangeSaved" style="color: green;"></p>
+    </div>
+    
+    <div class="controls">
+      <button id="exportBtn">Excelダウンロード</button>
+      <button id="deleteSelBtn">選択した回答を削除</button>
+      <button id="deleteAllBtn">すべての回答を削除</button><br><br>
+      <button id="revSelBtn">選択した回答の修正を確認</button>
+      <button id="revAllBtn">すべての回答の修正を確認</button>
+    </div>
 
-    if (!token || now > Number(token)) {
-      const input = prompt("管理者パスワードを入力してください：");
-      if (input !== PASSWORD) {
-        alert("パスワードが正しくありません。");
-        window.location.href = "index.html";
-      } else {
-        localStorage.setItem(TOKEN_KEY, now + EXPIRES_MS);
-      }
-    }
-  </script>
+    <br><button id="toggleAcceptBtn"></button>
 
-  <h1>南口シフト（管理画面）</h1>
-
-  <div>
-    <label>開始日: <input type="date" id="startDate"></label>
-    <label>終了日: <input type="date" id="endDate"></label>
-    <button id="saveBtn">期間を保存</button>
-    <p id="rangeSaved" style="color: green;"></p>
+    <div class="table-wrapper">
+      <div class="scroll-container" id="tableContainer"></div>
+    </div>
   </div>
-  
-  <div class="controls">
-    <button id="exportBtn">Excelダウンロード</button>
-    <button id="deleteSelBtn">選択した回答を削除</button>
-    <button id="deleteAllBtn">すべての回答を削除</button>
-  </div>
-
-  <br><button id="toggleAcceptBtn" style="padding: 10px 20px; font-weight: bold;"></button>
-
-  <div class="table-wrapper">
-    <div class="scroll-container" id="tableContainer"></div>
-  </div>
-
-  <!-- Firebase -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-    import {
-      getDatabase, ref, onValue, remove, get, set
-    } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
+    ////////firebase//////////////
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.0/firebase-app.js";
+    import { getFirestore, doc, setDoc, collection, addDoc, getDocs, getDoc, deleteDoc, updateDoc} from "https://www.gstatic.com/firebasejs/11.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDToeM2cPECKb22wElwSkCDsOMiEv_QU10",
@@ -154,23 +213,78 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-    const dbRef = ref(db, "responses");
-    const configRef = ref(db, "config/period");
-    const configAccept=ref(db, "config/acception")
-    const weekdays = ["月", "火", "水", "木", "金", "土", "日"];
+    const db = getFirestore(app);
+    ////////////////////////////////
 
+    function storeTokenTemporarily(key,expiresMs) {
+      // 30分後に自動削除
+      setTimeout(() => {
+        localStorage.removeItem(key);
+      }, expiresMs);
+    }
+
+    const TOKEN_KEY = "AuthKeyTime";
+    const EXPIRES_MS = 30 * 60 * 1000;
+    const localtoken = JSON.parse(localStorage.getItem(TOKEN_KEY));
+    const now = Date.now();
+
+    if (!localtoken) {
+      let input = prompt("管理者パスワードを入力してください：");
+      const inputRef =await getDoc(doc(db,"admin", input));
+      const PASSWORD =inputRef.id;
+      const expiresAt = now + EXPIRES_MS;
+      const authdata = {key:PASSWORD, time:expiresAt};
+      if (input !== PASSWORD) {
+        alert("パスワードが正しくありません。");
+        window.location.href = "index.html";
+      } else {
+        localStorage.setItem(TOKEN_KEY, JSON.stringify(authdata));
+        storeTokenTemporarily(TOKEN_KEY,EXPIRES_MS);
+        document.getElementById("main").style.display = "block";
+      }
+    }else{
+      const delay = localtoken.time-now;
+      storeTokenTemporarily(TOKEN_KEY,delay);
+      document.getElementById("main").style.display = "block";
+    };
+    
+    const adtoken = JSON.parse(localStorage.getItem(TOKEN_KEY)).key;
+    const cfgDoc = doc(db, "config", "cfgid");
+    const weekdays = ["月", "火", "水", "木", "金", "土", "日"];
+    const aduserCol = collection(db, "admin", adtoken, "users");
+    //acceptの初期状態と更新関数
+    let cfgSnap = await getDoc(cfgDoc);
+    const initstate = cfgSnap.data().accept ?? true; //the satet just when the page is opend
+   
+    function updateAcceptButton(state) {
+      const btn = document.getElementById("toggleAcceptBtn");
+      btn.classList.remove("accepting", "stopped");
+      btn.classList.add(state ? "accepting" : "stopped");
+      btn.textContent = state ? "✓ 回答受付中" : "回答停止中";
+    }
+
+    async function toggleAcception() {
+      const currerntSnap = await getDoc(cfgDoc);
+      const currentstate = currerntSnap.data().accept;
+      const nextstate = !currentstate;
+      await updateDoc(cfgDoc,{accept:nextstate});
+      updateAcceptButton(nextstate);
+    }
+
+    updateAcceptButton(initstate);
+
+    //データ整理
     function getDatesInRange(start, end) {
       const dateArray = [];
       let current = new Date(start);
       const last = new Date(end);
       while (current <= last) {
         const iso = current.toISOString().split("T")[0];
-        const day = current.getDate();
+        const hi = current.getDate();
         const dow = (current.getDay() + 6) % 7;
         const youbi = weekdays[dow];
-        dateArray.push({ iso, day, youbi, dow });
-        current.setDate(current.getDate() + 1);
+        dateArray.push({ iso, hi, youbi, dow });
+        current.setDate(hi + 1);
       }
       return dateArray;
     }
@@ -208,8 +322,6 @@
       return weeks;
     }
 
-
-
     function formatTime(answer) {
       if (!answer || !answer.type) return "";
       const { type, start, end } = answer;
@@ -238,11 +350,11 @@
 
       // スクロール可能なシフトテーブルのラッパー
       const scrollWrapper = document.createElement("div");
+      scrollWrapper.id = "entiretable";
       scrollWrapper.className = "scroll-container";
 
       weeks.forEach((weekDates, weekIndex) => {
         const table = document.createElement("table");
-
         const thead = document.createElement("thead");
         const headRow1 = document.createElement("tr");
         headRow1.innerHTML = "<th class='checkbox-col'></th><th class='name-col'>名前</th>";
@@ -257,7 +369,7 @@
         headRow2.innerHTML = "<th class='checkbox-col'>✔</th><th class='name-col'></th>";
         weekDates.forEach(d => {
           const th = document.createElement("th");
-          th.textContent = d ? d.day : "";
+          th.textContent = d ? d.hi : "";
           headRow2.appendChild(th);
         });
         thead.appendChild(headRow2);
@@ -266,10 +378,11 @@
         const tbody = document.createElement("tbody");
         data.forEach((entry, rowIndex) => {
           const row = document.createElement("tr");
+          row.className = `${entry.name}-row`; 
 
           const checkbox = document.createElement("td");
           if (weekIndex === 0) {
-            checkbox.innerHTML = `<input type="checkbox" class="deleteCheckbox" data-key="${entry._key}">`;
+            checkbox.innerHTML = `<input type="checkbox" class="deleteCheckbox" data-key="${entry.token}">`;
           }
           checkbox.className = "checkbox-col";
           row.appendChild(checkbox);
@@ -281,7 +394,9 @@
 
           weekDates.forEach(d => {
             const td = document.createElement("td");
-            if (d) td.textContent = formatTime(entry.answers?.[d.iso]);
+            if (d) {
+              td.className = `${entry.name}-${d.iso}`;
+              td.textContent = formatTime(entry.answers?.[d.iso])};
             row.appendChild(td);
           });
 
@@ -311,7 +426,7 @@
           const row = document.createElement("tr");
 
           const check = document.createElement("td");
-          check.innerHTML = `<input type="checkbox" class="deleteCheckbox" data-key="${e._key}">`;
+          check.innerHTML = `<input type="checkbox" class="deleteCheckbox" data-key="${e.token}">`;
           check.className = "checkbox-col";
           row.appendChild(check);
 
@@ -332,122 +447,207 @@
       }
     }
 
-    function deleteSelected() {
+    function revisedHighlight(data){
+      Object.keys(data.answers).forEach(date =>{
+        const revised = data.answers[date].rev ?? false;
+        if(revised){
+          const cell = document.querySelector(`.${data.name}-${date}`);
+          if (cell) {
+            cell.classList.add('revision-highlight');
+        }
+      }
+      })
+    }
+
+    async function deleteSelected() {
       const checkboxes = document.querySelectorAll(".deleteCheckbox:checked");
       if (!checkboxes.length) return alert("削除対象が選択されていません。");
       if (!confirm("本当に削除しますか？")) return;
-      checkboxes.forEach(cb => {
+
+      for (const cb of checkboxes) {
         const key = cb.dataset.key;
-        remove(ref(db, "responses/" + key));
-      });
-    }
-
-    function deleteAll() {
-      if (confirm("すべての回答を削除しますか？")) {
-        remove(ref(db, "responses"));
+        await deleteDoc(doc(db, "users", key));
+        await deleteDoc(doc(aduserCol, key));
       }
+
+      location.reload();
     }
 
-    function exportCSV() {
-      get(configRef).then(snapshot => {
-        const range = snapshot.val();
-        if (!range) return alert("期間が未設定です。");
+    async function deleteAll() {
+      if (!confirm("すべての回答を削除しますか？")) return;
 
-        const dates = getDatesInRange(range.start, range.end);
-        const header = dates.map(d => `${d.day}(${d.youbi})`);
-        header.push("備考"); // 備考列追加
+      const adQSS = await getDocs(aduserCol);
+      for (const docSnap of adQSS.docs) {
+        // サブコレクション 'answers' を先に削除
+        const answersRef = collection(aduserCol, docSnap.id, "answers");
+        const ansDocs = await getDocs(answersRef);
+        for (const a of ansDocs.docs) {
+          await deleteDoc(a.ref);
+        }
+        // その後、親ドキュメントを削除
+        await deleteDoc(doc(aduserCol, docSnap.id));
+      }
 
-        get(dbRef).then(snapshot => {
-          const data = snapshot.val() || {};
+      const userQSS = await getDocs(collection(db, "users"));
+      for (const docSnap of userQSS.docs) {
+        // サブコレクション 'answers' を削除
+        const answersRef = collection(db, "users", docSnap.id, "answers");
+        const ansDocs = await getDocs(answersRef);
+        for (const a of ansDocs.docs) {
+          await deleteDoc(a.ref);
+        }
+        // 最後に /users/{uid} 自体を削除
+        await deleteDoc(doc(db, "users", docSnap.id));
+      }
 
-          // 各日付の列に入る値を準備
-          const columns = dates.map(() => []);
-
-          Object.values(data).forEach(entry => {
-            dates.forEach((date, idx) => {
-              const answer = entry.answers?.[date.iso];
-              if (answer && answer.type) {
-                const formatted = formatTime(answer);
-                columns[idx].push(`${entry.name}${formatted}`);
-              }
-            });
-          });
-
-          // 行数を日付ごとの列の最大長さで計算（短い列は詰める）
-          const maxRows = Math.max(...columns.map(col => col.length));
-
-          // 回答のあるものだけで行単位に並べ替え
-          const rows = [header];
-          for (let i = 0; i < maxRows; i++) {
-            const row = columns.map(col => col[i] || ""); // 足りない分は空欄
-            row.push(""); // 備考の空白
-            rows.push(row);
-          }
-
-          // CSVとして出力
-          const csv = "\uFEFF" + rows.map(r => r.map(cell => `"${cell}"`).join(",")).join("\r\n");
-          const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = "日付別シフト集計.csv";
-          a.click();
-        });
-      });
+      location.reload();
     }
+
+    async function confirmrevSelected() {
+      const checkboxes = document.querySelectorAll(".deleteCheckbox:checked");
+      if (!checkboxes.length) return alert("確認対象が選択されていません。");
+      if (!confirm("修正を確認済みにしますか？")) return;
+
+      for (const cb of checkboxes) {
+        const key = cb.dataset.key;
+
+        const adansQSS = await getDocs(collection(aduserCol, key, "answers"));
+        for (const day of adansQSS.docs){
+          await updateDoc(day.ref, {rev:false});
+        };
+      }
+      location.reload();
+    }
+
+    async function confirmrevAll() {
+      if (!confirm("すべての回答の修正を確認済みにしますか？")) return;
+
+      const adQSS = await getDocs(aduserCol);
+      for (const docSnap of adQSS.docs) {
+        const answersRef = collection(docSnap.ref, "answers");
+        const ansDocs = await getDocs(answersRef);
+        for (const a of ansDocs.docs) {
+          await updateDoc(a.ref, {rev:false});
+        }
+      }
+
+      const userQSS = await getDocs(collection(db, "users"));
+      for (const docSnap of userQSS.docs) {
+        const answersRef = collection(docSnap.ref, "answers");
+        const ansDocs = await getDocs(answersRef);
+        for (const a of ansDocs.docs) {
+          await updateDoc(a.ref, {rev:false});
+        }
+      }
+      location.reload();
+    }
+      
     
-    function saveRange() {
+
+    async function exportCSV() {
+      let cfgSnap = await getDoc(cfgDoc);
+      const range = cfgSnap.data().period;
+      if (!range) return alert("期間が未設定です。");
+
+      const dates = getDatesInRange(range.start, range.end);
+      const header = dates.map(d => `${d.hi}(${d.youbi})`);
+      header.push("備考");
+
+      const adQSS = await getDocs(aduserCol);
+      const data = adQSS.docs;
+      const columns = header.map(() => []);
+
+      for (const docSnap of data) {
+        const raw = docSnap.data();
+        const answersRef = collection(aduserCol, docSnap.id, "answers");
+        const ansQSS = await getDocs(answersRef);
+
+        const allanswer = {};
+        ansQSS.forEach(doc => {
+          allanswer[doc.id] = doc.data();
+        });
+
+        dates.forEach((date, idx) => {
+          const answer = allanswer[date.iso];
+          if (answer && answer.type) {
+            const formatted = formatTime(answer);
+            columns[idx].push(`${raw.name}${formatted}`);
+          }
+        });
+        if (raw.note){
+          const noteIndex = columns.length - 1;
+          columns[noteIndex].push(`${raw.name}:${raw.note ?? ""}`);
+        };
+      }
+
+      const maxRows = Math.max(...columns.map(col => col.length));
+      const rows = [header];
+      for (let i = 0; i < maxRows; i++) {
+        const row = columns.map(col => col[i] || "");
+        rows.push(row);
+      }
+
+      const csv = "\uFEFF" + rows.map(r => r.map(cell => `"${cell}"`).join(",")).join("\r\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "日付別シフト集計.csv";
+      a.click();
+    }
+
+
+    async function fetchData() {
+      let cfgSnap = await getDoc(cfgDoc);
+      const range = cfgSnap.data().period;
+      const AllQSS = await getDocs(aduserCol); 
+      const AllAnswers= [];
+      for (const docSnap of AllQSS.docs) {
+        const raw = docSnap.data()
+        const answersRef = collection(aduserCol, docSnap.id, "answers");
+        const answersSnap = await getDocs(answersRef);
+
+        const answerList = {};
+        answersSnap.forEach(ansDoc=>{
+          const ans = ansDoc.data();
+          const ansdate = ansDoc.id;
+          answerList[ansdate] = { type:`${ans.type}`, start:`${ans.start}`, end:`${ans.end}`,
+            ...(ans.rev !== undefined && { rev: ans.rev })};
+        })
+        const oneanswer = {
+          name: raw.name,
+          token: raw.token,
+          note: raw.note,
+          repeat: raw.repeat,
+          answers:answerList
+        };
+        AllAnswers.push(oneanswer);
+      }
+      renderTableFromData(AllAnswers, range);
+
+      AllAnswers.forEach(ans=>{
+        if(ans.repeat>0) revisedHighlight(ans);
+      })
+    }
+
+    async function saveRange() {
       const start = document.getElementById("startDate").value;
       const end = document.getElementById("endDate").value;
       if (!start || !end) return alert("開始日と終了日を入力してください。");
-      set(configRef, { start, end }).then(() => {
-        document.getElementById("rangeSaved").textContent = `保存されました：${start} ～ ${end}`;
-        fetchData();
-      });
+      const range = {start, end};
+      await updateDoc(cfgDoc,{period:range});
+      document.getElementById("rangeSaved").textContent = `保存されました：${start} ～ ${end}`;
+      fetchData();
     }
-
-    function fetchData() {
-      Promise.all([get(configRef), get(dbRef)]).then(([rangeSnap, dataSnap]) => {
-        const range = rangeSnap.val();
-        const data = dataSnap.val() || {};
-        const arr = Object.entries(data).map(([key, val]) => ({ ...val, _key: key }));
-        renderTableFromData(arr, range);
-      });
-    }
-
-    function updateAcceptButton(state) {
-      const btn = document.getElementById("toggleAcceptBtn");
-      if (state) {
-        btn.textContent = "✓ 回答受付中";
-        btn.style.backgroundColor = "#28a745"; // 緑
-        btn.style.color = "#fff";
-      } else {
-        btn.textContent = "回答停止中";
-        btn.style.backgroundColor = "#dc3545"; // 赤
-        btn.style.color = "#fff";
-      }
-    }
-
-    function toggleAcception() {
-      get(configAccept).then(snap => {
-        const current = snap.val() ?? true; // デフォルトtrue
-        const next = !current;
-        return set(configAccept, next).then(() => updateAcceptButton(next));
-      });
-    }
-
-    // 初期表示設定
-    get(configAccept).then(snap => {
-      const state = snap.val() ?? true;
-      updateAcceptButton(state);
-    });
 
     document.getElementById("saveBtn").addEventListener("click", saveRange);
     document.getElementById("exportBtn").addEventListener("click", exportCSV);
     document.getElementById("deleteSelBtn").addEventListener("click", deleteSelected);
     document.getElementById("deleteAllBtn").addEventListener("click", deleteAll);
+    document.getElementById("revSelBtn").addEventListener("click", confirmrevSelected);
+    document.getElementById("revAllBtn").addEventListener("click", confirmrevAll);
     document.getElementById("toggleAcceptBtn").addEventListener("click", toggleAcception);
-
+    
     fetchData();
   </script>
 </body>
