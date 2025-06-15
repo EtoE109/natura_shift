@@ -378,7 +378,7 @@
         const tbody = document.createElement("tbody");
         data.forEach((entry, rowIndex) => {
           const row = document.createElement("tr");
-          row.className = `${entry.name}-row`; 
+          row.className = `${entry.name}${entry.token}-row`; 
 
           const checkbox = document.createElement("td");
           if (weekIndex === 0) {
@@ -395,7 +395,7 @@
           weekDates.forEach(d => {
             const td = document.createElement("td");
             if (d) {
-              td.className = `${entry.name}-${d.iso}`;
+              td.className = `${entry.name}${entry.token}-${d.iso}`;
               td.textContent = formatTime(entry.answers?.[d.iso])};
             row.appendChild(td);
           });
@@ -451,7 +451,7 @@
       Object.keys(data.answers).forEach(date =>{
         const revised = data.answers[date].rev ?? false;
         if(revised){
-          const cell = document.querySelector(`.${data.name}-${date}`);
+          const cell = document.querySelector(`.${data.name}${data.token}-${date}`);
           if (cell) {
             cell.classList.add('revision-highlight');
         }
