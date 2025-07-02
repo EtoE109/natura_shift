@@ -547,7 +547,9 @@
       let repeat = userSnap.data().repeat ?? undefined;
       if (repeat === undefined) {
         await updateDoc(userDoc,{repeat:0});
-        await updateDoc(aduserDoc,{repeat:0})
+        await updateDoc(aduserDoc,{repeat:0});
+        const timestamp = new Date().toISOString();
+        await updateDoc(aduserDoc, {time: timestamp});
       } else{
         repeat+=1;
         await updateDoc(userDoc,{repeat});
@@ -560,6 +562,7 @@
       try{
         await updateDoc(userDoc,{note:note});
         await updateDoc(aduserDoc, {note:note});
+        
         for (const date of dateData) {
           await setDoc(doc(userDoc, "answers", date), answers[date]);
         };

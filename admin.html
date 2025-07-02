@@ -481,9 +481,26 @@
 
       for (const cb of checkboxes) {
         const key = cb.dataset.key;
+
+        // /users/{key}/answers 削除
+        const userAnswersRef = collection(db, "users", key, "answers");
+        const userAnswersSnap = await getDocs(userAnswersRef);
+        for (const docSnap of userAnswersSnap.docs) {
+          await deleteDoc(docSnap.ref);
+        }
+
+        // /admin/{adtoken}/users/{key}/answers 削除
+        const adminAnswersRef = collection(aduserCol, key, "answers");
+        const adminAnswersSnap = await getDocs(adminAnswersRef);
+        for (const docSnap of adminAnswersSnap.docs) {
+          await deleteDoc(docSnap.ref);
+        }
+
+        // 親ドキュメント削除
         await deleteDoc(doc(db, "users", key));
         await deleteDoc(doc(aduserCol, key));
       }
+
 
       location.reload();
     }
@@ -611,13 +628,19 @@
       a.click();
     }
 
-
     async function fetchData() {
       let cfgSnap = await getDoc(cfgDoc);
       const range = cfgSnap.data().period;
       const AllQSS = await getDocs(aduserCol); 
       const AllAnswers= [];
-      for (const docSnap of AllQSS.docs) {
+
+      const sortedDocs = AllQSS.docs.sort((a, b) => {
+        const aTime = a.data().time ?? "";
+        const bTime = b.data().time ?? "";
+        return aTime.localeCompare(bTime); // 昇順
+      });
+
+      for (const docSnap of sortedDocs) {
         const raw = docSnap.data()
         const answersRef = collection(aduserCol, docSnap.id, "answers");
         const answersSnap = await getDocs(answersRef);
@@ -667,4 +690,3 @@
   </script>
 </body>
 </html>
-
