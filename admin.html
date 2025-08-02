@@ -208,10 +208,16 @@
 
     <br><button id="toggleAcceptBtn"></button>
 
+    <div id="loadingMessage" style="display:none; color:rgb(73, 73, 73); font-weight:bold; margin-top:10px;">
+      データを削除中です。ページを遷移しないでください。
+    </div>
+
     <div class="table-wrapper">
       <div class="scroll-container" id="tableContainer"></div>
     </div>
   </div>
+
+
   <script type="module">
     ////////firebase//////////////
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.0/firebase-app.js";
@@ -474,10 +480,20 @@
       })
     }
 
+    function showLoadingMessage() {
+      document.getElementById("loadingMessage").style.display = "block";
+    }
+
+    function hideLoadingMessage() {
+      document.getElementById("loadingMessage").style.display = "none";
+    }
+
     async function deleteSelected() {
       const checkboxes = document.querySelectorAll(".deleteCheckbox:checked");
       if (!checkboxes.length) return alert("削除対象が選択されていません。");
       if (!confirm("本当に削除しますか？")) return;
+
+      showLoadingMessage();
 
       for (const cb of checkboxes) {
         const key = cb.dataset.key;
@@ -501,12 +517,14 @@
         await deleteDoc(doc(aduserCol, key));
       }
 
-
+      hideLoadingMessage();
       location.reload();
     }
 
     async function deleteAll() {
       if (!confirm("すべての回答を削除しますか？")) return;
+
+      showLoadingMessage();
 
       const adQSS = await getDocs(aduserCol);
       for (const docSnap of adQSS.docs) {
@@ -532,6 +550,7 @@
         await deleteDoc(doc(db, "users", docSnap.id));
       }
 
+      hideLoadingMessage();
       location.reload();
     }
 
