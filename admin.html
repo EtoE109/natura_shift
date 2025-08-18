@@ -605,10 +605,15 @@
       header.push("備考");
 
       const adQSS = await getDocs(aduserCol);
-      const data = adQSS.docs;
+
+      const sortedDocs = adQSS.docs.sort((a, b) => {
+        const aTime = a.data().time ?? "";
+        const bTime = b.data().time ?? "";
+        return aTime.localeCompare(bTime); // 昇順
+      });
       const columns = header.map(() => []);
 
-      for (const docSnap of data) {
+      for (const docSnap of sortedDocs) {
         const raw = docSnap.data();
         const answersRef = collection(aduserCol, docSnap.id, "answers");
         const ansQSS = await getDocs(answersRef);
