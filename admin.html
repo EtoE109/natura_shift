@@ -249,20 +249,41 @@
     const localtoken = JSON.parse(localStorage.getItem(TOKEN_KEY));
     const now = Date.now();
 
+    
     if (!localtoken) {
       let input = prompt("管理者パスワードを入力してください：");
-      const inputRef =await getDoc(doc(db,"admin", input));
-      const PASSWORD =inputRef.id;
-      const expiresAt = now + EXPIRES_MS;
-      const authdata = {key:PASSWORD, time:expiresAt};
-      if (input !== PASSWORD) {
-        alert("パスワードが正しくありません。");
-        window.location.href = "index.html";
-      } else {
+
+      try {
+        const inputRef = await getDoc(doc(db, "admin", input));
+    
+        // 認証成功時の処理
+        const PASSWORD = inputRef.id;
+        const expiresAt = now + EXPIRES_MS;
+        const authdata = { key: PASSWORD, time: expiresAt };
+
         localStorage.setItem(TOKEN_KEY, JSON.stringify(authdata));
-        storeTokenTemporarily(TOKEN_KEY,EXPIRES_MS);
+        storeTokenTemporarily(TOKEN_KEY, EXPIRES_MS);
         document.getElementById("main").style.display = "block";
+
+      } catch (error) {
+        console.error("認証エラー:", error);
+        alert("認証失敗：パスワードが間違っているか、接続に問題があります。");
+        location.reload()
       }
+
+      // let input = prompt("管理者パスワードを入力してください：");
+      // const inputRef =await getDoc(doc(db,"admin", input));
+      // const PASSWORD =inputRef.id;
+      // const expiresAt = now + EXPIRES_MS;
+      // const authdata = {key:PASSWORD, time:expiresAt};
+      // if (input !== PASSWORD) {
+      //   alert("パスワードが正しくありません。");
+      //   window.location.href = "index.html";
+      // } else {
+      //   localStorage.setItem(TOKEN_KEY, JSON.stringify(authdata));
+      //   storeTokenTemporarily(TOKEN_KEY,EXPIRES_MS);
+      //   document.getElementById("main").style.display = "block";
+      // }
     }else{
       const delay = localtoken.time-now;
       storeTokenTemporarily(TOKEN_KEY,delay);
