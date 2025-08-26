@@ -669,6 +669,8 @@
         const answersRef = collection(aduserCol, docSnap.id, "answers");
         const answersSnap = await getDocs(answersRef);
 
+        if (raw.repeat === undefined) continue;
+
         const answerList = {};
         answersSnap.forEach(ansDoc=>{
           const ans = ansDoc.data();
